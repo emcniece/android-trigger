@@ -2,6 +2,12 @@ package com.emcniece.trigger.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonTransformingSerializer
 
 enum class ActionType(val label: String) {
     HTTP("HTTP request"),
@@ -20,6 +26,28 @@ enum class ActionType(val label: String) {
 val HTTP_METHODS = listOf("GET", "POST", "PUT", "PATCH", "DELETE")
 
 @Serializable
+data class HttpHeader(val name: String = "", val value: String = "")
+
+/** Reads headers as a list, and also accepts the original format: one `Name: value` per line in a string. */
+object HeaderListSerializer : JsonTransformingSerializer<List<HttpHeader>>(ListSerializer(HttpHeader.serializer())) {
+    override fun transformDeserialize(element: JsonElement): JsonElement {
+        if (element !is JsonPrimitive || !element.isString) return element
+        return JsonArray(
+            element.content.lines().mapNotNull { line ->
+                val idx = line.indexOf(':')
+                if (idx <= 0) return@mapNotNull null
+                JsonObject(
+                    mapOf(
+                        "name" to JsonPrimitive(line.substring(0, idx).trim()),
+                        "value" to JsonPrimitive(line.substring(idx + 1).trim()),
+                    ),
+                )
+            },
+        )
+    }
+}
+
+@Serializable
 sealed interface Action {
     val type: ActionType
     fun describe(): String
@@ -29,8 +57,8 @@ sealed interface Action {
     data class HttpRequest(
         val method: String = "POST",
         val url: String = "",
-        /** One `Name: value` header per line. */
-        val headers: String = "Content-Type: application/json",
+        @Serializable(with = HeaderListSerializer::class)
+        val headers: List<HttpHeader> = listOf(HttpHeader("Content-Type", "application/json")),
         val body: String = "{\"trigger\": \"{trigger}\", \"macro\": \"{macro_name:json}\"}",
     ) : Action {
         override val type: ActionType get() = ActionType.HTTP

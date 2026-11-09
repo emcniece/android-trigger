@@ -4,6 +4,7 @@ import com.emcniece.trigger.engine.Http
 import com.emcniece.trigger.engine.Templates
 import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.AppJson
+import com.emcniece.trigger.model.HttpHeader
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.MatchMode
 import com.emcniece.trigger.model.NetworkTransport
@@ -63,11 +64,24 @@ class ModelTest {
         assertEquals(mapOf("Content-Type" to "application/json", "Authorization" to "Bearer a:b"), h)
     }
 
+    @Test fun legacyStringHeadersStillLoad() {
+        val json = """{"kind":"http","method":"POST","url":"https://x",""" +
+            """"headers":"Content-Type: application/json\nX-Webhook-Secret: s3:cr3t","body":""}"""
+        val action = AppJson.decodeFromString(Action.serializer(), json) as Action.HttpRequest
+        assertEquals(
+            listOf(HttpHeader("Content-Type", "application/json"), HttpHeader("X-Webhook-Secret", "s3:cr3t")),
+            action.headers,
+        )
+    }
+
     @Test fun macroJsonRoundTrip() {
         val m = Macro(
             name = "Forward",
             trigger = Trigger.SmsReceived(sender = TextMatch(MatchMode.EQUALS, "123")),
-            actions = listOf(Action.HttpRequest(url = "https://x"), Action.Vibrate(200)),
+            actions = listOf(
+                Action.HttpRequest(url = "https://x", headers = listOf(HttpHeader("X-Webhook-Secret", "abc"))),
+                Action.Vibrate(200),
+            ),
         )
         val json = AppJson.encodeToString(Macro.serializer(), m)
         assertEquals(m, AppJson.decodeFromString(Macro.serializer(), json))

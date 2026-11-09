@@ -47,7 +47,10 @@ object ActionRunner {
         val call = HttpCall(
             method = action.method,
             url = t(action.url).trim(),
-            headers = Http.parseHeaders(t(action.headers)),
+            headers = action.headers
+                .map { t(it.name).trim() to t(it.value).trim() }
+                .filter { it.first.isNotEmpty() }
+                .toMap(),
             body = t(action.body),
         )
         Http.validate(call)

@@ -71,6 +71,7 @@ import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.ActionType
 import com.emcniece.trigger.model.AppJson
 import com.emcniece.trigger.model.HTTP_METHODS
+import com.emcniece.trigger.model.HttpHeader
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.MatchMode
 import com.emcniece.trigger.model.NetworkTransport
@@ -403,7 +404,7 @@ private fun ActionFields(action: Action, onChange: (Action) -> Unit) {
             Field("URL", action.url, keyboard = KeyboardType.Uri, placeholder = "https://example.com/webhook") {
                 onChange(action.copy(url = it))
             }
-            Field("Headers (one per line)", action.headers, singleLine = false, monospace = true) { onChange(action.copy(headers = it)) }
+            HeadersEditor(action.headers) { onChange(action.copy(headers = it)) }
             if (action.method != "GET") {
                 Field("Body", action.body, singleLine = false, monospace = true) { onChange(action.copy(body = it)) }
             }
@@ -423,6 +424,83 @@ private fun ActionFields(action: Action, onChange: (Action) -> Unit) {
                 onValueChange = { onChange(action.copy(durationMs = (it / 100).roundToInt() * 100L)) },
                 valueRange = 100f..3000f,
             )
+        }
+    }
+}
+
+@Composable
+private fun HeadersEditor(headers: List<HttpHeader>, onChange: (List<HttpHeader>) -> Unit) {
+    fun replace(i: Int, h: HttpHeader) = onChange(headers.toMutableList().also { it[i] = h })
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Headers", style = MaterialTheme.typography.labelLarge)
+        headers.forEachIndexed { i, header ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = header.name,
+                    onValueChange = { replace(i, header.copy(name = it)) },
+                    label = { Text("Name") },
+                    placeholder = { Text("X-Webhook-Secret") },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    modifier = Modifier.weight(0.45f),
+                )
+                if (header.name.trim().equals("Content-Type", ignoreCase = true)) {
+                    ContentTypeField(header.value, Modifier.weight(0.55f)) { replace(i, header.copy(value = it)) }
+                } else {
+                    OutlinedTextField(
+                        value = header.value,
+                        onValueChange = { replace(i, header.copy(value = it)) },
+                        label = { Text("Value") },
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                        modifier = Modifier.weight(0.55f),
+                    )
+                }
+                IconButton(onClick = { onChange(headers.filterIndexed { j, _ -> j != i }) }) {
+                    Icon(Icons.Default.Close, contentDescription = "Remove header")
+                }
+            }
+        }
+        TextButton(onClick = { onChange(headers + HttpHeader()) }) {
+            Icon(Icons.Default.Add, null)
+            Text("Add header", Modifier.padding(start = 8.dp))
+        }
+    }
+}
+
+private val CONTENT_TYPES = listOf(
+    "application/json",
+    "application/x-www-form-urlencoded",
+    "text/plain",
+    "application/xml",
+    "text/csv",
+)
+
+/** Dropdown of common content types; still editable for custom values (e.g. with a charset). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ContentTypeField(value: String, modifier: Modifier, onChange: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }, modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onChange,
+            label = { Text("Value") },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth(),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            CONTENT_TYPES.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(type, fontFamily = FontFamily.Monospace) },
+                    onClick = {
+                        onChange(type)
+                        expanded = false
+                    },
+                )
+            }
         }
     }
 }
