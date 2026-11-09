@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: distinct name and icon colour so they're easy to tell apart from the release app. -->
+<resources>
+    <string name="app_name">Trigger Debug</string>
+    <color name="ic_launcher_background">#7A2E2E</color>
+</resources>

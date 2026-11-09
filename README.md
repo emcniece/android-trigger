@@ -8,13 +8,13 @@ This is a simplified version of the [MacroDroid](https://www.macrodroid.com/) ap
 
 ## Screenshots
 
-| Macros | Editor | Activity log |
-|---|---|---|
-| <img src="docs/screenshots/macroList.png" width="240" alt="Macro list"> | <img src="docs/screenshots/macroEditor.png" width="240" alt="Macro editor: SMS trigger forwarding to an HTTP webhook"> | <img src="docs/screenshots/activityLog.png" width="240" alt="Activity log"> |
+| Macros | Editor | HTTP request | Activity log |
+|---|---|---|---|
+| <img src="docs/screenshots/macroList.png" width="200" alt="Macro list"> | <img src="docs/screenshots/macroEditor.png" width="200" alt="Macro editor: SMS trigger with sender and text filters"> | <img src="docs/screenshots/macroEditorHttp.png" width="200" alt="HTTP request action with headers and a templated JSON body"> | <img src="docs/screenshots/activityLog.png" width="200" alt="Activity log"> |
 
-| Dark theme | About |
-|---|---|
-| <img src="docs/screenshots/macroListDark.png" width="240" alt="Macro list in dark theme"> | <img src="docs/screenshots/about.png" width="240" alt="About page"> |
+| Variables | Dark theme | About |
+|---|---|---|
+| <img src="docs/screenshots/variables.png" width="200" alt="Unknown variable warning and the insert-variable picker"> | <img src="docs/screenshots/macroListDark.png" width="200" alt="Macro list in dark theme"> | <img src="docs/screenshots/about.png" width="200" alt="About page"> |
 
 *Screenshots are rendered from sample data with [Paparazzi](https://github.com/cashapp/paparazzi); regenerate them with `./gradlew updateScreenshots`.*
 
@@ -45,7 +45,7 @@ Text filters support *contains*, *equals*, *starts with*, *ends with* and *regex
 
 ### Variables
 
-Any action field can use `{variable}` placeholders. Every macro gets `{macro_name}`, `{trigger}`, `{timestamp}` (ISO-8601), `{epoch_ms}` and `{device}`, plus the trigger's own variables above. Add `:json` to escape for a JSON string or `:url` to URL-encode, e.g.:
+Any action field can use `{variable}` placeholders. Tap the **{ }** button on a field to pick one, and the editor flags placeholders that won't be filled in, such as a typo or a variable from a different trigger. Every macro gets `{macro_name}`, `{trigger}`, `{timestamp}` (ISO-8601), `{epoch_ms}` and `{device}`, plus the trigger's own variables above. Add `:json` to escape for a JSON string or `:url` to URL-encode, e.g.:
 
 ```json
 {"from": "{sms_sender:json}", "text": "{sms_body:json}", "at": "{timestamp}"}
@@ -87,10 +87,10 @@ Requires JDK 17–21 and the Android SDK (platform 35).
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Debug builds can simulate trigger events over adb without a real SMS or charger:
+Debug builds install as a separate app, **Trigger Debug** (`com.emcniece.trigger.debug`), so they can sit alongside a release install. Both apps receive every SMS, so use different keywords for test macros. Debug builds can also simulate trigger events over adb without a real SMS or charger:
 
 ```sh
-adb shell am broadcast -n com.emcniece.trigger/.DebugEventReceiver \
+adb shell am broadcast -n com.emcniece.trigger.debug/com.emcniece.trigger.DebugEventReceiver \
   --es type sms --es sms_sender +15555550123 --es sms_body "'hello world'"
 ```
 

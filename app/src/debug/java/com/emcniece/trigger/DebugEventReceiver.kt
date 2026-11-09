@@ -11,11 +11,14 @@ import com.emcniece.trigger.model.TriggerType
 /**
  * Debug-only entry point for simulating trigger events from adb, e.g.
  *
- *   adb shell am broadcast -n com.emcniece.trigger/.DebugEventReceiver \
+ *   adb shell am broadcast -n com.emcniece.trigger.debug/com.emcniece.trigger.DebugEventReceiver \
  *       --es type sms --es sms_sender +15555550123 --es sms_body "hello"
  *
  * `type` is a TriggerType name (sms, notification, power, battery, network, boot, time);
  * every other string extra becomes an event variable. Filters are applied exactly as for real events.
+ *
+ * The debug app ID has a ".debug" suffix but classes keep their package, so the component
+ * must be given in full rather than as ".DebugEventReceiver".
  */
 class DebugEventReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

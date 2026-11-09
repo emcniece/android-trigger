@@ -8,7 +8,7 @@ enum class TriggerType(val label: String, val vars: List<String>) {
     NOTIFICATION("Notification posted", listOf("notif_package", "notif_title", "notif_text")),
     POWER("Charger connected / disconnected", listOf("power_state")),
     BATTERY("Battery level", listOf("battery_level", "battery_previous")),
-    NETWORK("Network connected / lost", listOf("network_state", "network_type")),
+    NETWORK("Network connected / lost", listOf("network_state", "network_type", "network_scope")),
     BOOT("Device boot", emptyList()),
     TIME("Time of day", listOf("time"));
 
@@ -32,7 +32,7 @@ enum class TriggerType(val label: String, val vars: List<String>) {
         )
         POWER -> mapOf("power_state" to "connected")
         BATTERY -> mapOf("battery_level" to "15", "battery_previous" to "16")
-        NETWORK -> mapOf("network_state" to "connected", "network_type" to "wifi")
+        NETWORK -> mapOf("network_state" to "connected", "network_type" to "wifi", "network_scope" to "wifi")
         BOOT -> emptyMap()
         TIME -> mapOf("time" to "08:00")
     }

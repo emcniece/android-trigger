@@ -1,6 +1,21 @@
 package com.emcniece.trigger
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.emcniece.trigger.model.TriggerType
+import com.emcniece.trigger.model.VariableFormat
+import com.emcniece.trigger.ui.TemplateField
+import com.emcniece.trigger.ui.VariablePickerContent
 import app.cash.paparazzi.DeviceConfig
 import app.cash.paparazzi.Paparazzi
 import com.android.resources.NightMode
@@ -13,6 +28,7 @@ import com.emcniece.trigger.model.NetworkTransport
 import com.emcniece.trigger.model.TextMatch
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.ui.AboutContent
+import com.emcniece.trigger.ui.ActionCard
 import com.emcniece.trigger.ui.LogContent
 import com.emcniece.trigger.ui.MacroEditContent
 import com.emcniece.trigger.ui.MacroListContent
@@ -44,27 +60,61 @@ class ReadmeScreenshots {
         shot(dark = true) { MacroList() }
     }
 
+    /** Top of the editor: name, permissions, trigger and filters (normal phone height so it stays sharp). */
     @Test
-    fun macroEditor() {
-        // Extra-tall canvas so the whole editor (trigger + actions) fits in one image.
-        paparazzi.unsafeUpdateConfig(deviceConfig = DeviceConfig.PIXEL_6.copy(screenHeight = 5600))
-        shot {
-            MacroEditContent(
-                initial = Samples.forwardSms,
-                isNew = false,
-                onBack = {},
-                onSave = {},
-                onDelete = {},
-                onTest = { "" },
-                requirements = {
-                    RequirementsCardContent(listOf("Unrestricted battery use (reliable background runs)" to true)) {}
-                },
-            )
+    fun macroEditor() = shot {
+        MacroEditContent(
+            initial = Samples.forwardSms,
+            isNew = false,
+            onBack = {},
+            onSave = {},
+            onDelete = {},
+            onTest = { "" },
+            requirements = {
+                RequirementsCardContent(listOf("Unrestricted battery use (reliable background runs)" to true)) {}
+            },
+        )
+    }
+
+    /** The HTTP request action card on its own. */
+    @Test
+    fun macroEditorHttp() = shot {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(16.dp)) {
+                ActionCard(
+                    action = Samples.forwardSms.actions.first(),
+                    triggerType = Samples.forwardSms.trigger.type,
+                    canMoveUp = false,
+                    canMoveDown = true,
+                    onChange = {},
+                    onMove = {},
+                    onDelete = {},
+                )
+            }
         }
     }
 
     @Test
     fun activityLog() = shot { LogContent(Samples.log, onBack = {}, onClear = {}) }
+
+    /** A field flagging an unknown variable, above the variable picker (dialogs don't render in Paparazzi). */
+    @Test
+    fun variables() = shot {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                TemplateField(
+                    "Body", "{\"text\": \"{sms_message}\"}", TriggerType.SMS,
+                    onChange = {}, singleLine = false, monospace = true,
+                )
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text("Insert variable", style = MaterialTheme.typography.headlineSmall)
+                        VariablePickerContent(TriggerType.SMS, VariableFormat.JSON) {}
+                    }
+                }
+            }
+        }
+    }
 
     @Test
     fun about() = shot { AboutContent(version = "0.1.0", onBack = {}, onOpen = {}) }

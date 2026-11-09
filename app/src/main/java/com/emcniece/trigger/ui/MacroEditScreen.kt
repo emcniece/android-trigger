@@ -53,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,6 +79,7 @@ import com.emcniece.trigger.model.NetworkTransport
 import com.emcniece.trigger.model.TextMatch
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.model.TriggerType
+import com.emcniece.trigger.model.VariableFormat
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -200,6 +202,7 @@ fun MacroEditContent(
             draft.actions.forEachIndexed { index, action ->
                 ActionCard(
                     action = action,
+                    triggerType = draft.trigger.type,
                     canMoveUp = index > 0,
                     canMoveDown = index < draft.actions.lastIndex,
                     onChange = { updated -> draft = draft.copy(actions = draft.actions.toMutableList().also { it[index] = updated }) },
@@ -241,7 +244,7 @@ private fun SectionHeader(text: String) {
 private fun RequirementsCard(macro: Macro) {
     val context = LocalContext.current
     val tick = rememberResumeTick()
-    var refresh by remember { mutableStateOf(0) }
+    var refresh by remember { mutableIntStateOf(0) }
     val unmet = remember(macro.trigger.type, macro.actions.map { it.type }, tick, refresh) { Requirements.unmet(context, macro) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh++ }
     RequirementsCardContent(unmet.map { it.label to it.optional }) { index ->
@@ -279,11 +282,14 @@ fun RequirementsCardContent(items: List<Pair<String, Boolean>>, onGrant: (Int) -
 
 @Composable
 private fun VariablesHint(type: TriggerType) {
-    val vars = (type.vars + listOf("macro_name", "timestamp", "trigger", "device")).joinToString(" ") { "{$it}" }
+    val vars = type.vars.joinToString(", ") { "{$it}" }
     Text(
-        "Variables: $vars\nAppend :json or :url to escape a value, e.g. {sms_body:json}",
+        buildString {
+            append("Tap { } in a field to insert a variable")
+            if (vars.isNotEmpty()) append(" such as $vars")
+            append(". Add :json or :url to escape a value.")
+        },
         style = MaterialTheme.typography.bodySmall,
-        fontFamily = FontFamily.Monospace,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
@@ -405,8 +411,9 @@ private fun <T> ChoiceField(
 // ---------- Action editors ----------
 
 @Composable
-private fun ActionCard(
+internal fun ActionCard(
     action: Action,
+    triggerType: TriggerType,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onChange: (Action) -> Unit,
@@ -422,32 +429,49 @@ private fun ActionCard(
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Close, "Remove action") }
             }
             Column(Modifier.padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionFields(action, onChange)
+                ActionFields(action, triggerType, onChange)
             }
         }
     }
 }
 
 @Composable
-private fun ActionFields(action: Action, onChange: (Action) -> Unit) {
+private fun ActionFields(action: Action, triggerType: TriggerType, onChange: (Action) -> Unit) {
     when (action) {
         is Action.HttpRequest -> {
             ChoiceField("Method", HTTP_METHODS, action.method, { it }) { onChange(action.copy(method = it)) }
-            Field("URL", action.url, keyboard = KeyboardType.Uri, placeholder = "https://example.com/webhook") {
-                onChange(action.copy(url = it))
-            }
-            HeadersEditor(action.headers) { onChange(action.copy(headers = it)) }
+            TemplateField(
+                "URL", action.url, triggerType,
+                onChange = { onChange(action.copy(url = it)) },
+                keyboard = KeyboardType.Uri,
+                placeholder = "https://example.com/webhook",
+                defaultFormat = VariableFormat.URL,
+            )
+            HeadersEditor(action.headers, triggerType) { onChange(action.copy(headers = it)) }
             if (action.method != "GET") {
-                Field("Body", action.body, singleLine = false, monospace = true) { onChange(action.copy(body = it)) }
+                val jsonBody = action.headers.any {
+                    it.name.trim().equals("Content-Type", ignoreCase = true) && it.value.contains("json", ignoreCase = true)
+                }
+                TemplateField(
+                    "Body", action.body, triggerType,
+                    onChange = { onChange(action.copy(body = it)) },
+                    singleLine = false,
+                    monospace = true,
+                    defaultFormat = if (jsonBody) VariableFormat.JSON else VariableFormat.PLAIN,
+                )
             }
         }
         is Action.ShowNotification -> {
-            Field("Title", action.title) { onChange(action.copy(title = it)) }
-            Field("Text", action.text, singleLine = false) { onChange(action.copy(text = it)) }
+            TemplateField("Title", action.title, triggerType, onChange = { onChange(action.copy(title = it)) })
+            TemplateField("Text", action.text, triggerType, onChange = { onChange(action.copy(text = it)) }, singleLine = false)
         }
         is Action.SendSms -> {
-            Field("Phone number", action.phoneNumber, keyboard = KeyboardType.Phone) { onChange(action.copy(phoneNumber = it)) }
-            Field("Message", action.message, singleLine = false) { onChange(action.copy(message = it)) }
+            TemplateField(
+                "Phone number", action.phoneNumber, triggerType,
+                onChange = { onChange(action.copy(phoneNumber = it)) },
+                keyboard = KeyboardType.Phone,
+            )
+            TemplateField("Message", action.message, triggerType, onChange = { onChange(action.copy(message = it)) }, singleLine = false)
         }
         is Action.Vibrate -> {
             Text("${action.durationMs} ms", style = MaterialTheme.typography.bodyLarge)
@@ -461,7 +485,7 @@ private fun ActionFields(action: Action, onChange: (Action) -> Unit) {
 }
 
 @Composable
-private fun HeadersEditor(headers: List<HttpHeader>, onChange: (List<HttpHeader>) -> Unit) {
+private fun HeadersEditor(headers: List<HttpHeader>, triggerType: TriggerType, onChange: (List<HttpHeader>) -> Unit) {
     fun replace(i: Int, h: HttpHeader) = onChange(headers.toMutableList().also { it[i] = h })
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Headers", style = MaterialTheme.typography.labelLarge)
@@ -481,13 +505,10 @@ private fun HeadersEditor(headers: List<HttpHeader>, onChange: (List<HttpHeader>
                     if (header.name.trim().equals("Content-Type", ignoreCase = true)) {
                         ContentTypeField(header.value, Modifier.fillMaxWidth()) { replace(i, header.copy(value = it)) }
                     } else {
-                        OutlinedTextField(
-                            value = header.value,
-                            onValueChange = { replace(i, header.copy(value = it)) },
-                            label = { Text("Value") },
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                            modifier = Modifier.fillMaxWidth(),
+                        TemplateField(
+                            "Value", header.value, triggerType,
+                            onChange = { replace(i, header.copy(value = it)) },
+                            monospace = true,
                         )
                     }
                 }
@@ -540,28 +561,6 @@ private fun ContentTypeField(value: String, modifier: Modifier, onChange: (Strin
     }
 }
 
-@Composable
-private fun Field(
-    label: String,
-    value: String,
-    singleLine: Boolean = true,
-    monospace: Boolean = false,
-    keyboard: KeyboardType = KeyboardType.Text,
-    placeholder: String? = null,
-    onChange: (String) -> Unit,
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it) } },
-        singleLine = singleLine,
-        minLines = if (singleLine) 1 else 2,
-        textStyle = if (monospace) MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace) else MaterialTheme.typography.bodyLarge,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
 
 @Composable
 private fun AddActionButton(onAdd: (ActionType) -> Unit) {

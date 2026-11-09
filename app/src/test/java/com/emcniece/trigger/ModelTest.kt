@@ -12,6 +12,7 @@ import com.emcniece.trigger.model.TextMatch
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.model.TriggerEvent
 import com.emcniece.trigger.model.TriggerType
+import com.emcniece.trigger.model.Variables
 import org.junit.Assert.assertEquals
 import com.emcniece.trigger.data.ImportException
 import com.emcniece.trigger.data.MacroTransfer
@@ -62,6 +63,23 @@ class ModelTest {
         assertEquals("""{"t": "He said \"hi\"\nbye"}""", Templates.render("""{"t": "{sms_body:json}"}""", vars))
         assertEquals("q=%2B1+555", Templates.render("q={sms_sender:url}", vars))
         assertEquals("{unknown} {", Templates.render("{unknown} {", vars))
+    }
+
+    @Test fun variableProblems() {
+        val sms = TriggerType.SMS
+        assertEquals(emptyList<String>(), Variables.problems("""{"text": "{sms_body:json}", "at": "{timestamp}"}""", sms))
+        assertEquals(listOf("Unknown variable {sms_message}"), Variables.problems("{sms_message}", sms))
+        assertEquals(
+            listOf("{battery_level} isn't set by the “SMS received” trigger"),
+            Variables.problems("Battery {battery_level}%", sms),
+        )
+        assertEquals(listOf("Unknown format in {sms_body:xml}; use :json or :url"), Variables.problems("{sms_body:xml}", sms))
+        // JSON braces and repeated tokens aren't double-reported.
+        assertEquals(listOf("Unknown variable {nope}"), Variables.problems("""{"a": {"b": 1}} {nope} {nope}""", sms))
+        // Every variable the engine sets for a trigger is accepted.
+        for (type in TriggerType.entries) {
+            assertEquals(emptyList<String>(), Variables.problems(type.sampleVars().keys.joinToString(" ") { "{$it}" }, type))
+        }
     }
 
     @Test fun headerParsing() {
