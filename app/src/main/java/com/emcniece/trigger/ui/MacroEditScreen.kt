@@ -68,7 +68,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.engine.MacroEngine
+import com.emcniece.trigger.engine.AndroidDeviceState
 import com.emcniece.trigger.model.Action
+import com.emcniece.trigger.model.Constraint
 import com.emcniece.trigger.model.ActionType
 import com.emcniece.trigger.model.AppJson
 import com.emcniece.trigger.model.HTTP_METHODS
@@ -102,6 +104,9 @@ private fun newMacro() = Macro(
 fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
     val context = LocalContext.current
     val existing = remember(macroId) { macroId?.let { Graph.macros.get(it) } }
+    // Re-read device state each time the screen resumes (e.g. after plugging in a charger).
+    val tick = rememberResumeTick()
+    val deviceState = remember(tick) { AndroidDeviceState(context) }
     MacroEditContent(
         initial = existing ?: newMacro(),
         isNew = existing == null,
@@ -115,9 +120,13 @@ fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
             onDone()
         },
         onTest = { macro ->
+            // Test runs ignore constraints, but say so if they'd currently block a real run.
+            val blocking = macro.blockingConstraints(AndroidDeviceState(context))
             MacroEngine.runMacro(context.applicationContext, macro, macro.trigger.type.sampleVars(), allowRetry = false)
-            Graph.log.entries.value.firstOrNull()?.message ?: "Test run finished"
+            val result = Graph.log.entries.value.firstOrNull()?.message ?: "Test run finished"
+            if (blocking.isEmpty()) result else "$result (ran anyway; conditions not met now)"
         },
+        constraintStatus = { it.isMet(deviceState) },
     )
 }
 
@@ -135,6 +144,7 @@ fun MacroEditContent(
     onDelete: (Macro) -> Unit,
     onTest: suspend (Macro) -> String,
     requirements: @Composable (Macro) -> Unit = { RequirementsCard(it) },
+    constraintStatus: (Constraint) -> Boolean? = { null },
 ) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -197,6 +207,15 @@ fun MacroEditContent(
             )
             TriggerEditor(draft.trigger) { draft = draft.copy(trigger = it) }
 
+            SectionHeader("Only if")
+            ConstraintsEditor(
+                constraints = draft.constraints,
+                match = draft.constraintMatch,
+                onConstraintsChange = { draft = draft.copy(constraints = it) },
+                onMatchChange = { draft = draft.copy(constraintMatch = it) },
+                status = constraintStatus,
+            )
+
             SectionHeader("Then")
             VariablesHint(draft.trigger.type)
             draft.actions.forEachIndexed { index, action ->
@@ -236,7 +255,7 @@ fun MacroEditContent(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
 }
 
@@ -368,7 +387,7 @@ private fun TextMatchEditor(label: String, match: TextMatch, onChange: (TextMatc
 }
 
 @Composable
-private fun BinaryChoice(first: String, second: String, value: Boolean, onChange: (Boolean) -> Unit) {
+internal fun BinaryChoice(first: String, second: String, value: Boolean, onChange: (Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterChip(selected = value, onClick = { onChange(true) }, label = { Text(first) })
         FilterChip(selected = !value, onClick = { onChange(false) }, label = { Text(second) })
@@ -377,7 +396,7 @@ private fun BinaryChoice(first: String, second: String, value: Boolean, onChange
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> ChoiceField(
+internal fun <T> ChoiceField(
     label: String,
     options: List<T>,
     selected: T,

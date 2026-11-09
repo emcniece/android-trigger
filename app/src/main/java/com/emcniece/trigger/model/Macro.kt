@@ -17,9 +17,24 @@ data class Macro(
     val name: String = "",
     val enabled: Boolean = true,
     val trigger: Trigger = Trigger.SmsReceived(),
+    val constraints: List<Constraint> = emptyList(),
+    val constraintMatch: ConstraintMatch = ConstraintMatch.ALL,
     val actions: List<Action> = emptyList(),
 ) {
     val displayName: String get() = name.ifBlank { trigger.type.label }
+
+    /** Constraints that block this macro right now, or empty if it may run. */
+    fun blockingConstraints(state: DeviceState): List<Constraint> {
+        if (constraints.isEmpty()) return emptyList()
+        val unmet = constraints.filterNot { it.isMet(state) }
+        return when (constraintMatch) {
+            ConstraintMatch.ALL -> unmet
+            ConstraintMatch.ANY -> if (unmet.size == constraints.size) unmet else emptyList()
+        }
+    }
+
+    fun describeConstraints(): String =
+        constraints.joinToString(if (constraintMatch == ConstraintMatch.ALL) " and " else " or ") { it.describe() }
 }
 
 @Serializable

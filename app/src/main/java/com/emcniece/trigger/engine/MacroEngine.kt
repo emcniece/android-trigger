@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.os.Build
 import com.emcniece.trigger.Graph
+import com.emcniece.trigger.model.ConstraintMatch
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.TriggerEvent
 import kotlinx.coroutines.Job
@@ -23,7 +24,16 @@ object MacroEngine {
                 macro.trigger.matches(event)
         }
         return Graph.scope.launch {
-            matched.forEach { runMacro(app, it, event.vars, allowRetry = true) }
+            val state = AndroidDeviceState(app)
+            matched.forEach { macro ->
+                val blocking = macro.blockingConstraints(state)
+                if (blocking.isEmpty()) {
+                    runMacro(app, macro, event.vars, allowRetry = true)
+                } else {
+                    val joiner = if (macro.constraintMatch == ConstraintMatch.ALL) ", " else " or "
+                    Graph.log.add(macro.displayName, "Skipped, needs: ${blocking.joinToString(joiner) { it.describe() }}", true)
+                }
+            }
         }
     }
 

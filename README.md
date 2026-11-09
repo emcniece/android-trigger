@@ -12,9 +12,9 @@ This is a simplified version of the [MacroDroid](https://www.macrodroid.com/) ap
 |---|---|---|---|
 | <img src="docs/screenshots/macroList.png" width="200" alt="Macro list"> | <img src="docs/screenshots/macroEditor.png" width="200" alt="Macro editor: SMS trigger with sender and text filters"> | <img src="docs/screenshots/macroEditorHttp.png" width="200" alt="HTTP request action with headers and a templated JSON body"> | <img src="docs/screenshots/activityLog.png" width="200" alt="Activity log"> |
 
-| Variables | Dark theme | About |
-|---|---|---|
-| <img src="docs/screenshots/variables.png" width="200" alt="Unknown variable warning and the insert-variable picker"> | <img src="docs/screenshots/macroListDark.png" width="200" alt="Macro list in dark theme"> | <img src="docs/screenshots/about.png" width="200" alt="About page"> |
+| Conditions | Variables | Dark theme | About |
+|---|---|---|---|
+| <img src="docs/screenshots/constraints.png" width="200" alt="Only-if conditions: time window, weekdays and Wi-Fi, with live status"> | <img src="docs/screenshots/variables.png" width="200" alt="Unknown variable warning and the insert-variable picker"> | <img src="docs/screenshots/macroListDark.png" width="200" alt="Macro list in dark theme"> | <img src="docs/screenshots/about.png" width="200" alt="About page"> |
 
 *Screenshots are rendered from sample data with [Paparazzi](https://github.com/cashapp/paparazzi); regenerate them with `./gradlew updateScreenshots`.*
 
@@ -35,6 +35,21 @@ Like MacroDroid, the unit of automation is a **macro**: one **trigger** (with op
 | Time of day | daily HH:MM | `time` |
 
 Text filters support *contains*, *equals*, *starts with*, *ends with* and *regex*, optionally case-insensitive.
+
+### Conditions ("Only if")
+
+Optionally limit when a macro runs. Conditions are checked when the trigger fires; if they aren't met, the run is skipped and noted in the activity log. With several conditions, choose whether **all** or **any** must hold.
+
+| Condition | Options |
+|---|---|
+| Time of day | from / until (overnight windows like 22:00–06:00 work) |
+| Day of week | any combination of Mon–Sun |
+| Charging | charging / not charging |
+| Battery level | at least / at most N% |
+| Network | on Wi-Fi / on mobile data / online / offline |
+| Screen | on / off |
+
+The editor shows whether each condition is met right now. The ▶ test button runs actions regardless of conditions.
 
 ### Actions
 
@@ -106,6 +121,6 @@ Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and 
 
 ## Roadmap
 
-- Constraints (time window, day of week, charging, Wi-Fi SSID)
+- Wi-Fi network name (SSID) condition
 - More triggers: incoming call, headphones, Bluetooth device, geofence, app launched
 - More actions: launch app/URL, set volume / DND, Tasker-style intents, run multiple macros

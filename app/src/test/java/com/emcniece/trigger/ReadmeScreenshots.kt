@@ -21,6 +21,9 @@ import app.cash.paparazzi.Paparazzi
 import com.android.resources.NightMode
 import com.emcniece.trigger.data.LogEntry
 import com.emcniece.trigger.model.Action
+import com.emcniece.trigger.model.Constraint
+import com.emcniece.trigger.model.ConstraintMatch
+import com.emcniece.trigger.model.NetworkRequirement
 import com.emcniece.trigger.model.HttpHeader
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.MatchMode
@@ -29,6 +32,8 @@ import com.emcniece.trigger.model.TextMatch
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.ui.AboutContent
 import com.emcniece.trigger.ui.ActionCard
+import com.emcniece.trigger.ui.ConstraintsEditor
+import com.emcniece.trigger.ui.SectionHeader
 import com.emcniece.trigger.ui.LogContent
 import com.emcniece.trigger.ui.MacroEditContent
 import com.emcniece.trigger.ui.MacroListContent
@@ -116,6 +121,27 @@ class ReadmeScreenshots {
         }
     }
 
+    /** The editor's "Only if" section with a few conditions and their live status. */
+    @Test
+    fun constraints() = shot {
+        Surface(Modifier.fillMaxSize()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader("Only if")
+                ConstraintsEditor(
+                    constraints = listOf(
+                        Constraint.TimeWindow(17, 0, 23, 30),
+                        Constraint.DaysOfWeek(),
+                        Constraint.NetworkIs(NetworkRequirement.WIFI),
+                    ),
+                    match = ConstraintMatch.ALL,
+                    onConstraintsChange = {},
+                    onMatchChange = {},
+                    status = { it !is Constraint.TimeWindow },
+                )
+            }
+        }
+    }
+
     @Test
     fun about() = shot { AboutContent(version = "0.1.0", onBack = {}, onOpen = {}) }
 
@@ -157,6 +183,7 @@ private object Samples {
         id = "battery",
         name = "Low battery ping",
         trigger = Trigger.BatteryLevel(threshold = 15, below = true),
+        constraints = listOf(Constraint.Charging(false)),
         actions = listOf(Action.HttpRequest(url = "http://homeassistant.local:8123/api/webhook/phone-battery")),
     )
 
@@ -164,6 +191,7 @@ private object Samples {
         id = "wifi",
         name = "Home lights on",
         trigger = Trigger.NetworkChanged(connected = true, transport = NetworkTransport.WIFI),
+        constraints = listOf(Constraint.TimeWindow(17, 0, 23, 30), Constraint.DaysOfWeek()),
         actions = listOf(Action.HttpRequest(method = "GET", url = "http://192.168.1.20/lights/porch/on")),
     )
 

@@ -169,6 +169,13 @@ private fun MacroCard(macro: Macro, missing: List<String>, onToggle: (Boolean) -
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (macro.constraints.isNotEmpty()) {
+                    Text(
+                        "Only if: ${macro.describeConstraints()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Text(
                     "Then: " + macro.actions.joinToString(", ") { it.describe() }.ifEmpty { "nothing" },
                     style = MaterialTheme.typography.bodyMedium,
