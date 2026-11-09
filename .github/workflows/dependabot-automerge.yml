@@ -1,7 +1,7 @@
 name: Dependabot auto-merge
 
-# Enables GitHub auto-merge on Dependabot PRs; the merge happens only after the
-# required "Test" check passes (configured in branch protection for main).
+# Approves and enables auto-merge on Dependabot patch/minor PRs; the merge happens only
+# after the required "Test" check passes (enforced by the "main" ruleset).
 on: pull_request
 
 permissions:
@@ -18,9 +18,12 @@ jobs:
         uses: dependabot/fetch-metadata@v3
 
       # Major version bumps (e.g. AGP, Kotlin) often need code changes, so they are left for review.
-      - name: Enable auto-merge for patch and minor updates
+      # The approval satisfies the ruleset's review requirement; the merge still waits for "Test".
+      - name: Approve and enable auto-merge for patch and minor updates
         if: steps.meta.outputs.update-type != 'version-update:semver-major'
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          gh pr review --approve "$PR_URL" --body "Auto-approved: Dependabot ${{ steps.meta.outputs.update-type }}"
+          gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
