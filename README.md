@@ -107,7 +107,7 @@ The foreground `MonitorService` only runs while an enabled macro needs battery, 
 
 ## Building
 
-Requires JDK 17–21 and the Android SDK (platform 35).
+Requires JDK 17–21 and the Android SDK (platform 37; Gradle downloads build tools as needed).
 
 ```sh
 ./gradlew assembleDebug        # → app/build/outputs/apk/debug/app-debug.apk

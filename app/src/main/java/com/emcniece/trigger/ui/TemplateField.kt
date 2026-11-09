@@ -47,7 +47,7 @@ fun TemplateField(
     value: String,
     triggerType: TriggerType,
     onChange: (String) -> Unit,
-    modifier: Modifier = Modifier.fillMaxWidth(),
+    modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     monospace: Boolean = false,
     keyboard: KeyboardType = KeyboardType.Text,
@@ -86,7 +86,7 @@ fun TemplateField(
         },
         isError = problems.isNotEmpty(),
         supportingText = if (problems.isEmpty()) null else { { Text(problems.joinToString("\n")) } },
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
     )
 
     if (picking) {

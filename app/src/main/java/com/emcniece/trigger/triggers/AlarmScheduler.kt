@@ -5,8 +5,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.engine.MacroEngine
 import com.emcniece.trigger.engine.runAsync
@@ -40,7 +40,7 @@ object AlarmScheduler {
     private fun pendingIntent(context: Context, macroId: String, flags: Int): PendingIntent? {
         val intent = Intent(context, AlarmReceiver::class.java)
             .setAction(ACTION)
-            .setData(Uri.parse("trigger://alarm/$macroId")) // makes each macro's PendingIntent distinct
+            .setData("trigger://alarm/$macroId".toUri()) // makes each macro's PendingIntent distinct
             .putExtra(EXTRA_ID, macroId)
         return PendingIntent.getBroadcast(context, 0, intent, flags or PendingIntent.FLAG_IMMUTABLE)
     }
