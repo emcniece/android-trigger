@@ -52,6 +52,7 @@ Optionally limit when a macro runs. Conditions are checked when the trigger fire
 | Battery level | at least / at most N% |
 | Network | on Wi-Fi / on mobile data / online / offline |
 | Screen | on / off |
+| Wi-Fi network | connected / not connected to a network by name (SSID). Needs precise location, "Allow all the time" and location services on: Android hides the name otherwise, and the condition then counts as not met. |
 
 The editor shows whether each condition is met right now. The ▶ test button runs actions regardless of conditions.
 
@@ -134,5 +135,4 @@ Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and 
 
 ## Roadmap
 
-- Wi-Fi network name (SSID) condition
 - More triggers: geofence (location), app launched

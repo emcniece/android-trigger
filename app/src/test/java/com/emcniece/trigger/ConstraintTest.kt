@@ -5,6 +5,9 @@ import com.emcniece.trigger.model.Constraint
 import com.emcniece.trigger.model.ConstraintMatch
 import com.emcniece.trigger.model.DeviceState
 import com.emcniece.trigger.model.Macro
+import com.emcniece.trigger.model.MatchMode
+import com.emcniece.trigger.model.TextMatch
+import com.emcniece.trigger.model.UNKNOWN_SSID
 import com.emcniece.trigger.model.NetworkRequirement
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -18,6 +21,7 @@ private data class FakeState(
     override val isCharging: Boolean = false,
     override val networkType: String = "wifi",
     override val screenOn: Boolean = true,
+    override val wifiSsid: String? = "Home",
 ) : DeviceState
 
 private fun at(hour: Int, minute: Int = 0) = FakeState(now = LocalDateTime.of(2026, 11, 9, hour, minute))
@@ -68,6 +72,27 @@ class ConstraintTest {
         assertTrue(Constraint.Screen(on = false).isMet(s))
     }
 
+    @Test fun wifiNetwork() {
+        val home = Constraint.WifiNetwork(TextMatch(MatchMode.EQUALS, "Home", ignoreCase = false))
+        val notHome = home.copy(connected = false)
+        assertTrue(home.isMet(FakeState(wifiSsid = "Home")))
+        assertFalse(home.isMet(FakeState(wifiSsid = "home"))) // case-sensitive when asked
+        assertFalse(home.isMet(FakeState(wifiSsid = "Cafe")))
+        assertFalse(home.isMet(FakeState(wifiSsid = null))) // not on Wi-Fi
+        assertTrue(notHome.isMet(FakeState(wifiSsid = "Cafe")))
+        assertTrue(notHome.isMet(FakeState(wifiSsid = null)))
+        assertFalse(notHome.isMet(FakeState(wifiSsid = "Home")))
+        // Name hidden by Android: fail closed both ways rather than guess.
+        assertFalse(home.isMet(FakeState(wifiSsid = UNKNOWN_SSID)))
+        assertFalse(notHome.isMet(FakeState(wifiSsid = UNKNOWN_SSID)))
+        // "Any network" (match mode ANY) means simply on / off Wi-Fi.
+        assertTrue(Constraint.WifiNetwork(TextMatch()).isMet(FakeState(wifiSsid = "Anything")))
+        assertEquals("on Wi-Fi equals \"Home\"", home.describe())
+        assertEquals("not on Wi-Fi (any network)", Constraint.WifiNetwork(TextMatch(), connected = false).describe())
+        assertTrue(home.explainUnmet(FakeState(wifiSsid = UNKNOWN_SSID)).contains("hiding the Wi-Fi name"))
+        assertEquals(home.describe(), home.explainUnmet(FakeState(wifiSsid = "Cafe")))
+    }
+
     @Test fun allVersusAny() {
         val met = Constraint.Charging(false)
         val unmet = Constraint.Screen(on = false)
@@ -83,7 +108,7 @@ class ConstraintTest {
 
     @Test fun jsonRoundTripAndOldMacros() {
         val m = Macro(
-            constraints = listOf(Constraint.TimeWindow(22, 0, 6, 0), Constraint.DaysOfWeek(setOf(6, 7)), Constraint.NetworkIs(NetworkRequirement.OFFLINE)),
+            constraints = listOf(Constraint.TimeWindow(22, 0, 6, 0), Constraint.DaysOfWeek(setOf(6, 7)), Constraint.NetworkIs(NetworkRequirement.OFFLINE), Constraint.WifiNetwork(TextMatch(MatchMode.CONTAINS, "Cafe"), connected = false)),
             constraintMatch = ConstraintMatch.ANY,
         )
         assertEquals(m, AppJson.decodeFromString(Macro.serializer(), AppJson.encodeToString(Macro.serializer(), m)))

@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,10 +34,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.emcniece.trigger.engine.AndroidDeviceState
 import com.emcniece.trigger.model.Constraint
 import com.emcniece.trigger.model.ConstraintMatch
 import com.emcniece.trigger.model.ConstraintType
+import com.emcniece.trigger.model.MatchMode
 import com.emcniece.trigger.model.NetworkRequirement
+import com.emcniece.trigger.model.TextMatch
+import com.emcniece.trigger.model.UNKNOWN_SSID
 import kotlin.math.roundToInt
 
 /**
@@ -152,7 +157,27 @@ private fun ConstraintFields(constraint: Constraint, onChange: (Constraint) -> U
             onChange(constraint.copy(requirement = it))
         }
         is Constraint.Screen -> BinaryChoice("Screen on", "Screen off", constraint.on) { onChange(constraint.copy(on = it)) }
+        is Constraint.WifiNetwork -> WifiFields(constraint, onChange)
     }
+}
+
+@Composable
+private fun WifiFields(constraint: Constraint.WifiNetwork, onChange: (Constraint) -> Unit) {
+    val context = LocalContext.current
+    var note by remember { mutableStateOf<String?>(null) }
+    BinaryChoice("Connected to", "Not connected to", constraint.connected) { onChange(constraint.copy(connected = it)) }
+    TextMatchEditor("Network name (SSID)", constraint.ssid) { onChange(constraint.copy(ssid = it)) }
+    TextButton(onClick = {
+        note = when (val ssid = AndroidDeviceState(context).wifiSsid) {
+            null -> "Not connected to Wi-Fi right now."
+            UNKNOWN_SSID -> "Android won't share the network name yet: grant location access above and turn location on."
+            else -> {
+                onChange(constraint.copy(ssid = TextMatch(MatchMode.EQUALS, ssid, ignoreCase = false)))
+                null
+            }
+        }
+    }) { Text("Use current network") }
+    note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
 }
 
 private fun pickTime(context: Context, hour: Int, minute: Int, onSet: (Int, Int) -> Unit) {

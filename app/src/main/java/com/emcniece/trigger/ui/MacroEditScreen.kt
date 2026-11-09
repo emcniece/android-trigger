@@ -394,7 +394,7 @@ private fun TriggerEditor(trigger: Trigger, onChange: (Trigger) -> Unit) {
 }
 
 @Composable
-private fun TextMatchEditor(label: String, match: TextMatch, onChange: (TextMatch) -> Unit) {
+internal fun TextMatchEditor(label: String, match: TextMatch, onChange: (TextMatch) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         ChoiceField(label, MatchMode.entries, match.mode, { it.label }) { onChange(match.copy(mode = it)) }
         if (match.isActive) {

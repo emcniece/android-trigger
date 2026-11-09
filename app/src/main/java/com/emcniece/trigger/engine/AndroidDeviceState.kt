@@ -3,9 +3,11 @@ package com.emcniece.trigger.engine
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.PowerManager
 import com.emcniece.trigger.model.DeviceState
+import com.emcniece.trigger.model.UNKNOWN_SSID
 import java.time.LocalDateTime
 
 /** Reads device conditions on demand; each value is fetched at most once per instance. */
@@ -35,4 +37,14 @@ class AndroidDeviceState(context: Context) : DeviceState {
     }
 
     override val screenOn: Boolean by lazy { app.getSystemService(PowerManager::class.java).isInteractive }
+
+    override val wifiSsid: String? by lazy {
+        if (networkType != "wifi") return@lazy null
+        // Deprecated but still the simplest way to read the SSID; it's redacted to
+        // <unknown ssid> without location permission or with location services off.
+        @Suppress("DEPRECATION")
+        val raw = app.getSystemService(WifiManager::class.java).connectionInfo?.ssid
+        val ssid = raw?.removeSurrounding("\"")
+        if (ssid.isNullOrEmpty() || ssid == UNKNOWN_SSID) UNKNOWN_SSID else ssid
+    }
 }

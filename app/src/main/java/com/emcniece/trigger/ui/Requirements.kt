@@ -6,13 +6,16 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.emcniece.trigger.model.Action
+import com.emcniece.trigger.model.Constraint
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.model.TriggerType
@@ -87,6 +90,25 @@ object Requirements {
         intent = { Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS) },
     )
 
+    private val location = Requirement.Runtime(
+        "Precise location (to read the Wi-Fi name)",
+        listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+    )
+
+    // Must be requested on its own after precise location; Android 11+ opens Settings for it.
+    @SuppressLint("InlinedApi")
+    private val backgroundLocation = Requirement.Runtime(
+        "Location \"Allow all the time\" (Wi-Fi name in the background)",
+        listOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+    )
+
+    private val locationOn = Requirement.Special(
+        "Location services turned on",
+        optional = false,
+        check = { LocationManagerCompat.isLocationEnabled(it.getSystemService(LocationManager::class.java)) },
+        intent = { Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS) },
+    )
+
     @SuppressLint("BatteryLife")
     private val batteryUnrestricted = Requirement.Special(
         "Unrestricted battery use (reliable background runs)",
@@ -110,6 +132,11 @@ object Requirements {
             }
             TriggerType.BLUETOOTH -> if (Build.VERSION.SDK_INT >= 31) add(bluetoothConnect)
             TriggerType.BOOT -> Unit
+        }
+        if (macro.constraints.any { it is Constraint.WifiNetwork }) {
+            add(location)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) add(backgroundLocation)
+            add(locationOn)
         }
         if (macro.actions.any { it is Action.SendSms }) add(sendSms)
         if (macro.actions.any { it is Action.OpenApp || it is Action.OpenUrl }) add(overlay)

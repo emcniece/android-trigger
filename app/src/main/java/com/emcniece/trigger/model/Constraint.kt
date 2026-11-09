@@ -14,7 +14,13 @@ interface DeviceState {
     /** "wifi", "cellular", "ethernet", "vpn", "other", or "none" when offline. */
     val networkType: String
     val screenOn: Boolean
+
+    /** Current Wi-Fi network name; null when not on Wi-Fi, [UNKNOWN_SSID] when Android won't say. */
+    val wifiSsid: String?
 }
+
+/** Android hides the SSID without location permission (and location services on). */
+const val UNKNOWN_SSID = "<unknown ssid>"
 
 enum class ConstraintType(val label: String) {
     TIME("Time of day"),
@@ -22,7 +28,8 @@ enum class ConstraintType(val label: String) {
     CHARGING("Charging"),
     BATTERY("Battery level"),
     NETWORK("Network"),
-    SCREEN("Screen on / off");
+    SCREEN("Screen on / off"),
+    WIFI("Wi-Fi network");
 
     fun default(): Constraint = when (this) {
         TIME -> Constraint.TimeWindow()
@@ -31,6 +38,7 @@ enum class ConstraintType(val label: String) {
         BATTERY -> Constraint.Battery()
         NETWORK -> Constraint.NetworkIs()
         SCREEN -> Constraint.Screen()
+        WIFI -> Constraint.WifiNetwork()
     }
 }
 
@@ -53,6 +61,9 @@ sealed interface Constraint {
     val type: ConstraintType
     fun isMet(state: DeviceState): Boolean
     fun describe(): String
+
+    /** Why this isn't met right now; defaults to the description. */
+    fun explainUnmet(state: DeviceState): String = describe()
 
     /** [start] inclusive to [end] exclusive; wraps past midnight when start > end. Equal times mean all day. */
     @Serializable
@@ -137,5 +148,31 @@ sealed interface Constraint {
         override val type: ConstraintType get() = ConstraintType.SCREEN
         override fun isMet(state: DeviceState) = state.screenOn == on
         override fun describe() = if (on) "screen on" else "screen off"
+    }
+
+    /**
+     * Connected (or not) to a Wi-Fi network whose name matches. When Android won't reveal the
+     * name, the condition is treated as not met either way, rather than guessing.
+     */
+    @Serializable
+    @SerialName("wifi")
+    data class WifiNetwork(
+        val ssid: TextMatch = TextMatch(MatchMode.EQUALS, ""),
+        val connected: Boolean = true,
+    ) : Constraint {
+        override val type: ConstraintType get() = ConstraintType.WIFI
+        override fun isMet(state: DeviceState): Boolean {
+            val current = state.wifiSsid
+            if (current == UNKNOWN_SSID) return false
+            val onMatching = current != null && ssid.matches(current)
+            return if (connected) onMatching else !onMatching
+        }
+
+        override fun describe() = (if (connected) "on Wi-Fi " else "not on Wi-Fi ") +
+            if (ssid.isActive) ssid.describe() else "(any network)"
+
+        override fun explainUnmet(state: DeviceState) =
+            if (state.wifiSsid == UNKNOWN_SSID) "${describe()} (Android is hiding the Wi-Fi name: allow location \"all the time\" and turn location on)"
+            else describe()
     }
 }

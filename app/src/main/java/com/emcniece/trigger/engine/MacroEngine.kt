@@ -31,7 +31,7 @@ object MacroEngine {
                     runMacro(app, macro, event.vars, allowRetry = true)
                 } else {
                     val joiner = if (macro.constraintMatch == ConstraintMatch.ALL) ", " else " or "
-                    Graph.log.add(macro.displayName, "Skipped, needs: ${blocking.joinToString(joiner) { it.describe() }}", true)
+                    Graph.log.add(macro.displayName, "Skipped, needs: ${blocking.joinToString(joiner) { it.explainUnmet(state) }}", true)
                 }
             }
         }
