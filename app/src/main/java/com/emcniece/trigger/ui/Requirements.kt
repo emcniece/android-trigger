@@ -7,10 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
@@ -69,7 +69,7 @@ object Requirements {
         check = { AlarmScheduler.canScheduleExact(it) },
         intent = {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${it.packageName}"))
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:${it.packageName}".toUri())
             } else {
                 Intent(Settings.ACTION_SETTINGS)
             }
@@ -80,7 +80,7 @@ object Requirements {
         "Display over other apps (open apps and links in the background)",
         optional = false,
         check = { Settings.canDrawOverlays(it) },
-        intent = { Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${it.packageName}")) },
+        intent = { Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:${it.packageName}".toUri()) },
     )
 
     private fun dndAccess(optional: Boolean) = Requirement.Special(
@@ -114,7 +114,7 @@ object Requirements {
         "Unrestricted battery use (reliable background runs)",
         optional = true,
         check = { it.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(it.packageName) },
-        intent = { Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${it.packageName}")) },
+        intent = { Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, "package:${it.packageName}".toUri()) },
     )
 
     fun forMacro(macro: Macro): List<Requirement> = buildList {

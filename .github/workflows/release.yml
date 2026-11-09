@@ -54,7 +54,7 @@ jobs:
           TRIGGER_KEY_ALIAS: ${{ secrets.TRIGGER_KEY_ALIAS }}
           TRIGGER_KEY_PASSWORD: ${{ secrets.TRIGGER_KEY_PASSWORD }}
         run: >
-          ./gradlew testReleaseUnitTest assembleRelease --stacktrace
+          ./gradlew testDebugUnitTest assembleRelease --stacktrace
           -PversionName=${{ steps.version.outputs.name }}
           -PversionCode=${{ steps.version.outputs.code }}
 

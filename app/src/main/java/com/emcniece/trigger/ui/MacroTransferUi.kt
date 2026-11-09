@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.data.ImportException
 import com.emcniece.trigger.data.MacroTransfer
@@ -38,6 +39,7 @@ fun rememberMacroTransfer(snackbar: SnackbarHostState): MacroTransferActions {
     val scope = rememberCoroutineScope()
     var confirmExport by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<List<Macro>?>(null) }
+    val currentMacros by Graph.macros.macros.collectAsStateWithLifecycle()
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -95,7 +97,7 @@ fun rememberMacroTransfer(snackbar: SnackbarHostState): MacroTransferActions {
     }
 
     pendingImport?.let { incoming ->
-        val existingIds = Graph.macros.macros.value.map { it.id }.toSet()
+        val existingIds = currentMacros.map { it.id }.toSet()
         val conflicts = incoming.count { it.id in existingIds }
         fun finish(macros: List<Macro>) {
             Graph.macros.importAll(macros)

@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.media.AudioManager
-import android.net.Uri
 import android.provider.Settings
 import android.content.Context
 import android.content.pm.PackageManager
@@ -15,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.telephony.SmsManager
+import androidx.core.net.toUri
 import androidx.core.content.ContextCompat
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.model.Action
@@ -84,7 +84,7 @@ object ActionRunner {
 
     private fun openUrl(context: Context, url: String): String {
         if (url.isEmpty()) throw ActionException("no URL")
-        val uri = Uri.parse(url)
+        val uri = url.toUri()
         if (uri.scheme.isNullOrEmpty()) throw ActionException("\"$url\" needs a scheme such as https://")
         checkCanStartActivity(context)
         try {
