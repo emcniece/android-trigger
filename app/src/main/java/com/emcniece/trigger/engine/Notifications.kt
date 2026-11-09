@@ -25,7 +25,7 @@ object Notifications {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_MONITOR, "Background monitoring", NotificationManager.IMPORTANCE_MIN).apply {
-                description = "Shown while Trigger watches battery, charger and network events"
+                description = "Shown while Trigger watches device events such as battery, network, calls and screen"
                 setShowBadge(false)
             },
         )
@@ -45,7 +45,7 @@ object Notifications {
         NotificationCompat.Builder(context, CHANNEL_MONITOR)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Trigger is watching for events")
-            .setContentText("Battery, charger and network triggers are active")
+            .setContentText("Watching for device events used by your macros")
             .setContentIntent(openApp(context))
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)

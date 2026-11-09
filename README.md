@@ -33,6 +33,10 @@ Like MacroDroid, the unit of automation is a **macro**: one **trigger** (with op
 | Network connected / lost | any / Wi-Fi / mobile data | `network_state`, `network_type` |
 | Device boot | – | – |
 | Time of day | daily HH:MM | `time` |
+| Phone call | ringing / answered / ended / missed, caller number | `call_state`, `call_number` |
+| Headphones | connected / disconnected; any, wired, Bluetooth or USB | `headphones_state`, `headphones_type`, `headphones_name` |
+| Bluetooth device | connected / disconnected, device name | `bt_state`, `bt_name`, `bt_address` |
+| Screen | turned on / turned off / phone unlocked | `screen_state` |
 
 Text filters support *contains*, *equals*, *starts with*, *ends with* and *regex*, optionally case-insensitive.
 
@@ -80,7 +84,8 @@ OS event ──► receiver / service ──► TriggerEvent ──► MacroEngi
              NotificationListener                      macros)           └─ HTTP failure ─► HttpRetryWorker (WorkManager)
              BootReceiver
              AlarmReceiver (AlarmManager)
-             MonitorService (foreground; battery, charger, network)
+             BluetoothReceiver
+             MonitorService (foreground; battery, charger, network, calls, screen, headphones)
 ```
 
 - `model/`: serializable `Macro`, `Trigger`, `Action` sealed types
@@ -89,7 +94,7 @@ OS event ──► receiver / service ──► TriggerEvent ──► MacroEngi
 - `triggers/`: Android entry points that turn OS events into `TriggerEvent`s
 - `ui/`: Jetpack Compose screens (macro list, editor, log) and permission handling
 
-The foreground `MonitorService` only runs while an enabled macro needs battery, charger or network events. Since Android 8, those broadcasts can't be received by manifest-declared receivers.
+The foreground `MonitorService` only runs while an enabled macro needs battery, charger, network, call, screen or headphone events. Since Android 8, those broadcasts can't be received by manifest-declared receivers.
 
 ## Building
 
@@ -122,5 +127,5 @@ Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and 
 ## Roadmap
 
 - Wi-Fi network name (SSID) condition
-- More triggers: incoming call, headphones, Bluetooth device, geofence, app launched
+- More triggers: geofence (location), app launched
 - More actions: launch app/URL, set volume / DND, Tasker-style intents, run multiple macros

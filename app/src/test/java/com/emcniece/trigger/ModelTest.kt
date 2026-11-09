@@ -5,7 +5,10 @@ import com.emcniece.trigger.engine.Templates
 import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.AppJson
 import com.emcniece.trigger.model.HttpHeader
+import com.emcniece.trigger.model.CallEvent
+import com.emcniece.trigger.model.HeadphoneKind
 import com.emcniece.trigger.model.Macro
+import com.emcniece.trigger.model.ScreenEventKind
 import com.emcniece.trigger.model.MatchMode
 import com.emcniece.trigger.model.NetworkTransport
 import com.emcniece.trigger.model.TextMatch
@@ -50,6 +53,32 @@ class ModelTest {
         assertFalse(t.matches(ev(22, 21)))
         val up = Trigger.BatteryLevel(threshold = 80, below = false)
         assertTrue(up.matches(ev(80, 79)))
+    }
+
+    @Test fun newTriggers() {
+        fun ev(type: TriggerType, vararg v: Pair<String, String>) = TriggerEvent(type, mapOf(*v))
+        val missedFromMom = Trigger.PhoneCall(CallEvent.MISSED, TextMatch(MatchMode.ENDS_WITH, "0123"))
+        assertTrue(missedFromMom.matches(ev(TriggerType.CALL, "call_state" to "missed", "call_number" to "+15555550123")))
+        assertFalse(missedFromMom.matches(ev(TriggerType.CALL, "call_state" to "ended", "call_number" to "+15555550123")))
+        assertFalse(missedFromMom.matches(ev(TriggerType.CALL, "call_state" to "missed", "call_number" to "")))
+
+        val btHeadphones = Trigger.Headphones(connected = true, outputType = HeadphoneKind.BLUETOOTH)
+        assertTrue(btHeadphones.matches(ev(TriggerType.HEADPHONES, "headphones_state" to "connected", "headphones_type" to "bluetooth")))
+        assertFalse(btHeadphones.matches(ev(TriggerType.HEADPHONES, "headphones_state" to "connected", "headphones_type" to "wired")))
+        assertTrue(Trigger.Headphones(connected = false).matches(ev(TriggerType.HEADPHONES, "headphones_state" to "disconnected", "headphones_type" to "usb")))
+
+        val car = Trigger.BluetoothDevice(connected = true, name = TextMatch(MatchMode.CONTAINS, "car"))
+        assertTrue(car.matches(ev(TriggerType.BLUETOOTH, "bt_state" to "connected", "bt_name" to "My Car Audio")))
+        assertFalse(car.matches(ev(TriggerType.BLUETOOTH, "bt_state" to "connected", "bt_name" to "Watch")))
+
+        assertTrue(Trigger.ScreenEvent(ScreenEventKind.UNLOCKED).matches(ev(TriggerType.SCREEN, "screen_state" to "unlocked")))
+        assertFalse(Trigger.ScreenEvent(ScreenEventKind.ON).matches(ev(TriggerType.SCREEN, "screen_state" to "unlocked")))
+
+        // Every trigger type round-trips through JSON and has a default.
+        for (type in TriggerType.entries) {
+            val m = Macro(trigger = type.default())
+            assertEquals(m, AppJson.decodeFromString(Macro.serializer(), AppJson.encodeToString(Macro.serializer(), m)))
+        }
     }
 
     @Test fun networkScope() {

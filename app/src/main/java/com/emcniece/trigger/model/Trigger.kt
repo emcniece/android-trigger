@@ -10,7 +10,11 @@ enum class TriggerType(val label: String, val vars: List<String>) {
     BATTERY("Battery level", listOf("battery_level", "battery_previous")),
     NETWORK("Network connected / lost", listOf("network_state", "network_type", "network_scope")),
     BOOT("Device boot", emptyList()),
-    TIME("Time of day", listOf("time"));
+    TIME("Time of day", listOf("time")),
+    CALL("Phone call", listOf("call_state", "call_number")),
+    HEADPHONES("Headphones connected / disconnected", listOf("headphones_state", "headphones_type", "headphones_name")),
+    BLUETOOTH("Bluetooth device connected / disconnected", listOf("bt_state", "bt_name", "bt_address")),
+    SCREEN("Screen on / off / unlocked", listOf("screen_state"));
 
     fun default(): Trigger = when (this) {
         SMS -> Trigger.SmsReceived()
@@ -20,6 +24,10 @@ enum class TriggerType(val label: String, val vars: List<String>) {
         NETWORK -> Trigger.NetworkChanged()
         BOOT -> Trigger.Boot
         TIME -> Trigger.DailyTime()
+        CALL -> Trigger.PhoneCall()
+        HEADPHONES -> Trigger.Headphones()
+        BLUETOOTH -> Trigger.BluetoothDevice()
+        SCREEN -> Trigger.ScreenEvent()
     }
 
     /** Fake event data used by the "Test" button. */
@@ -35,7 +43,31 @@ enum class TriggerType(val label: String, val vars: List<String>) {
         NETWORK -> mapOf("network_state" to "connected", "network_type" to "wifi", "network_scope" to "wifi")
         BOOT -> emptyMap()
         TIME -> mapOf("time" to "08:00")
+        CALL -> mapOf("call_state" to "missed", "call_number" to "+15555550123")
+        HEADPHONES -> mapOf("headphones_state" to "connected", "headphones_type" to "bluetooth", "headphones_name" to "Test Buds")
+        BLUETOOTH -> mapOf("bt_state" to "connected", "bt_name" to "Car Audio", "bt_address" to "00:11:22:33:44:55")
+        SCREEN -> mapOf("screen_state" to "unlocked")
     }
+}
+
+enum class CallEvent(val id: String, val label: String) {
+    RINGING("ringing", "Incoming call ringing"),
+    ANSWERED("answered", "Incoming call answered"),
+    ENDED("ended", "Call ended"),
+    MISSED("missed", "Missed call"),
+}
+
+enum class HeadphoneKind(val id: String, val label: String) {
+    ANY("any", "Any headphones"),
+    WIRED("wired", "Wired"),
+    BLUETOOTH("bluetooth", "Bluetooth"),
+    USB("usb", "USB"),
+}
+
+enum class ScreenEventKind(val id: String, val label: String) {
+    ON("on", "Screen turned on"),
+    OFF("off", "Screen turned off"),
+    UNLOCKED("unlocked", "Phone unlocked"),
 }
 
 enum class NetworkTransport(val id: String, val label: String) {
@@ -150,5 +182,66 @@ sealed interface Trigger {
         // Alarm events are targeted at a single macro, so the type check is sufficient here.
         override fun matches(event: TriggerEvent) = event.type == type
         override fun describe() = "Every day at %02d:%02d".format(hour, minute)
+    }
+
+    @Serializable
+    @SerialName("call")
+    data class PhoneCall(
+        val event: CallEvent = CallEvent.MISSED,
+        val number: TextMatch = TextMatch(),
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.CALL
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            event.vars["call_state"] == this.event.id &&
+            number.matches(event.vars["call_number"])
+
+        override fun describe() = buildString {
+            append(event.label)
+            if (number.isActive) append(", number ${number.describe()}")
+        }
+    }
+
+    @Serializable
+    @SerialName("headphones")
+    data class Headphones(
+        val connected: Boolean = true,
+        // Not "kind": that name is reserved for the JSON type discriminator.
+        val outputType: HeadphoneKind = HeadphoneKind.ANY,
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.HEADPHONES
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            event.vars["headphones_state"] == (if (connected) "connected" else "disconnected") &&
+            (outputType == HeadphoneKind.ANY || event.vars["headphones_type"] == outputType.id)
+
+        override fun describe() = buildString {
+            append(if (outputType == HeadphoneKind.ANY) "Headphones" else "${outputType.label} headphones")
+            append(if (connected) " connected" else " disconnected")
+        }
+    }
+
+    @Serializable
+    @SerialName("bluetooth")
+    data class BluetoothDevice(
+        val connected: Boolean = true,
+        val name: TextMatch = TextMatch(),
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.BLUETOOTH
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            event.vars["bt_state"] == (if (connected) "connected" else "disconnected") &&
+            name.matches(event.vars["bt_name"])
+
+        override fun describe() = buildString {
+            append("Bluetooth device ")
+            append(if (connected) "connected" else "disconnected")
+            if (name.isActive) append(", name ${name.describe()}")
+        }
+    }
+
+    @Serializable
+    @SerialName("screen")
+    data class ScreenEvent(val event: ScreenEventKind = ScreenEventKind.UNLOCKED) : Trigger {
+        override val type: TriggerType get() = TriggerType.SCREEN
+        override fun matches(event: TriggerEvent) = event.type == type && event.vars["screen_state"] == this.event.id
+        override fun describe() = event.label
     }
 }

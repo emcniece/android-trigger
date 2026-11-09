@@ -1,5 +1,6 @@
 package com.emcniece.trigger.triggers
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -7,6 +8,7 @@ import android.content.Intent
 import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import androidx.core.content.IntentCompat
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.engine.MacroEngine
 import com.emcniece.trigger.engine.runAsync
@@ -76,5 +78,35 @@ class NotificationListener : NotificationListenerService() {
                 mapOf("notif_package" to sbn.packageName, "notif_title" to title, "notif_text" to text),
             ),
         )
+    }
+}
+
+/**
+ * Bluetooth connect/disconnect broadcasts are exempt from implicit-broadcast limits, so this
+ * works without the monitor service. Android 12+ only delivers them with BLUETOOTH_CONNECT.
+ */
+class BluetoothReceiver : BroadcastReceiver() {
+    @SuppressLint("MissingPermission") // name lookup is guarded; missing permission just leaves it blank
+    override fun onReceive(context: Context, intent: Intent) {
+        val state = when (intent.action) {
+            android.bluetooth.BluetoothDevice.ACTION_ACL_CONNECTED -> "connected"
+            android.bluetooth.BluetoothDevice.ACTION_ACL_DISCONNECTED -> "disconnected"
+            else -> return
+        }
+        val device = IntentCompat.getParcelableExtra(
+            intent,
+            android.bluetooth.BluetoothDevice.EXTRA_DEVICE,
+            android.bluetooth.BluetoothDevice::class.java,
+        )
+        val name = try {
+            device?.name
+        } catch (_: SecurityException) {
+            null
+        }.orEmpty()
+        val event = TriggerEvent(
+            TriggerType.BLUETOOTH,
+            mapOf("bt_state" to state, "bt_name" to name, "bt_address" to device?.address.orEmpty()),
+        )
+        runAsync { MacroEngine.dispatch(context, event).join() }
     }
 }

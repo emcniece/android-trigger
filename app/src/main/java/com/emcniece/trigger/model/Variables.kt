@@ -32,6 +32,15 @@ object Variables {
         "network_type" to "wifi, cellular, ethernet…",
         "network_scope" to "Which network the trigger watches: any, wifi or cellular",
         "time" to "Scheduled time, HH:MM",
+        "call_state" to "ringing, answered, ended or missed",
+        "call_number" to "Caller's number (needs call log access)",
+        "headphones_state" to "connected or disconnected",
+        "headphones_type" to "wired, bluetooth or usb",
+        "headphones_name" to "Device name reported by Android",
+        "bt_state" to "connected or disconnected",
+        "bt_name" to "Bluetooth device name",
+        "bt_address" to "Bluetooth device address",
+        "screen_state" to "on, off or unlocked",
     )
 
     fun forTrigger(type: TriggerType): List<VariableInfo> =

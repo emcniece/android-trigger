@@ -73,6 +73,9 @@ import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.Constraint
 import com.emcniece.trigger.model.ActionType
 import com.emcniece.trigger.model.AppJson
+import com.emcniece.trigger.model.CallEvent
+import com.emcniece.trigger.model.HeadphoneKind
+import com.emcniece.trigger.model.ScreenEventKind
 import com.emcniece.trigger.model.HTTP_METHODS
 import com.emcniece.trigger.model.HttpHeader
 import com.emcniece.trigger.model.Macro
@@ -362,6 +365,26 @@ private fun TriggerEditor(trigger: Trigger, onChange: (Trigger) -> Unit) {
                 DateFormat.is24HourFormat(context),
             ).show()
         }) { Text("Every day at %02d:%02d".format(trigger.hour, trigger.minute)) }
+        is Trigger.PhoneCall -> {
+            ChoiceField("Call event", CallEvent.entries, trigger.event, { it.label }) { onChange(trigger.copy(event = it)) }
+            TextMatchEditor("Caller number", trigger.number) { onChange(trigger.copy(number = it)) }
+        }
+        is Trigger.Headphones -> {
+            BinaryChoice("Connected", "Disconnected", trigger.connected) { onChange(trigger.copy(connected = it)) }
+            ChoiceField("Type", HeadphoneKind.entries, trigger.outputType, { it.label }) { onChange(trigger.copy(outputType = it)) }
+        }
+        is Trigger.BluetoothDevice -> {
+            BinaryChoice("Connected", "Disconnected", trigger.connected) { onChange(trigger.copy(connected = it)) }
+            TextMatchEditor("Device name", trigger.name) { onChange(trigger.copy(name = it)) }
+            Text(
+                "Includes watches, cars and other accessories; filter by name to pick one.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        is Trigger.ScreenEvent -> ChoiceField("Event", ScreenEventKind.entries, trigger.event, { it.label }) {
+            onChange(trigger.copy(event = it))
+        }
     }
 }
 
