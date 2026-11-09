@@ -96,38 +96,66 @@ private fun newMacro() = Macro(
     ),
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
     val context = LocalContext.current
+    val existing = remember(macroId) { macroId?.let { Graph.macros.get(it) } }
+    MacroEditContent(
+        initial = existing ?: newMacro(),
+        isNew = existing == null,
+        onBack = onDone,
+        onSave = {
+            Graph.macros.upsert(it)
+            onDone()
+        },
+        onDelete = {
+            Graph.macros.delete(it.id)
+            onDone()
+        },
+        onTest = { macro ->
+            MacroEngine.runMacro(context.applicationContext, macro, macro.trigger.type.sampleVars(), allowRetry = false)
+            Graph.log.entries.value.firstOrNull()?.message ?: "Test run finished"
+        },
+    )
+}
+
+/**
+ * Stateless-from-the-outside macro editor. [onTest] runs the draft and returns a status message.
+ * [requirements] renders the permissions card; previews replace it with static content.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MacroEditContent(
+    initial: Macro,
+    isNew: Boolean,
+    onBack: () -> Unit,
+    onSave: (Macro) -> Unit,
+    onDelete: (Macro) -> Unit,
+    onTest: suspend (Macro) -> String,
+    requirements: @Composable (Macro) -> Unit = { RequirementsCard(it) },
+) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val existing = remember(macroId) { macroId?.let { Graph.macros.get(it) } }
-    var draft by rememberSaveable(stateSaver = MacroSaver) { mutableStateOf(existing ?: newMacro()) }
+    var draft by rememberSaveable(stateSaver = MacroSaver) { mutableStateOf(initial) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (existing == null) "New macro" else "Edit macro") },
+                title = { Text(if (isNew) "New macro" else "Edit macro") },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Discard") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Discard") }
                 },
                 actions = {
                     IconButton(onClick = {
-                        scope.launch {
-                            MacroEngine.runMacro(context.applicationContext, draft, draft.trigger.type.sampleVars(), allowRetry = false)
-                            val last = Graph.log.entries.value.firstOrNull()
-                            snackbar.showSnackbar(last?.message ?: "Test run finished")
-                        }
+                        scope.launch { snackbar.showSnackbar(onTest(draft)) }
                     }) { Icon(Icons.Default.PlayArrow, contentDescription = "Test run") }
-                    if (existing != null) {
+                    if (!isNew) {
                         IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, contentDescription = "Delete") }
                     }
-                    IconButton(onClick = {
-                        Graph.macros.upsert(draft.copy(name = draft.name.trim()))
-                        onDone()
-                    }) { Icon(Icons.Default.Check, contentDescription = "Save") }
+                    IconButton(onClick = { onSave(draft.copy(name = draft.name.trim())) }) {
+                        Icon(Icons.Default.Check, contentDescription = "Save")
+                    }
                 },
             )
         },
@@ -155,7 +183,7 @@ fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
                 Switch(checked = draft.enabled, onCheckedChange = { draft = draft.copy(enabled = it) })
             }
 
-            RequirementsCard(draft)
+            requirements(draft)
 
             SectionHeader("When")
             ChoiceField(
@@ -195,9 +223,8 @@ fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
             text = { Text("\"${draft.displayName}\" will be removed.") },
             confirmButton = {
                 TextButton(onClick = {
-                    Graph.macros.delete(draft.id)
                     confirmDelete = false
-                    onDone()
+                    onDelete(draft)
                 }) { Text("Delete") }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
@@ -217,28 +244,33 @@ private fun RequirementsCard(macro: Macro) {
     var refresh by remember { mutableStateOf(0) }
     val unmet = remember(macro.trigger.type, macro.actions.map { it.type }, tick, refresh) { Requirements.unmet(context, macro) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refresh++ }
-    if (unmet.isEmpty()) return
+    RequirementsCardContent(unmet.map { it.label to it.optional }) { index ->
+        when (val req = unmet[index]) {
+            is Requirement.Runtime -> launcher.launch(req.permissions.toTypedArray())
+            is Requirement.Special -> try {
+                context.startActivity(req.intent(context))
+            } catch (_: ActivityNotFoundException) {
+                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
+            }
+        }
+    }
+}
 
+/** [items] are (label, optional) pairs; [onGrant] receives the tapped item's index. */
+@Composable
+fun RequirementsCardContent(items: List<Pair<String, Boolean>>, onGrant: (Int) -> Unit) {
+    if (items.isEmpty()) return
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Permissions", style = MaterialTheme.typography.titleSmall)
-            unmet.forEach { req ->
+            items.forEachIndexed { index, (label, optional) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        req.label + if (req.optional) " (recommended)" else "",
+                        label + if (optional) " (recommended)" else "",
                         Modifier.weight(1f),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    TextButton(onClick = {
-                        when (req) {
-                            is Requirement.Runtime -> launcher.launch(req.permissions.toTypedArray())
-                            is Requirement.Special -> try {
-                                context.startActivity(req.intent(context))
-                            } catch (_: ActivityNotFoundException) {
-                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
-                            }
-                        }
-                    }) { Text("Grant") }
+                    TextButton(onClick = { onGrant(index) }) { Text("Grant") }
                 }
             }
         }
@@ -434,27 +466,30 @@ private fun HeadersEditor(headers: List<HttpHeader>, onChange: (List<HttpHeader>
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Headers", style = MaterialTheme.typography.labelLarge)
         headers.forEachIndexed { i, header ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = header.name,
-                    onValueChange = { replace(i, header.copy(name = it)) },
-                    label = { Text("Name") },
-                    placeholder = { Text("X-Webhook-Secret") },
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                    modifier = Modifier.weight(0.45f),
-                )
-                if (header.name.trim().equals("Content-Type", ignoreCase = true)) {
-                    ContentTypeField(header.value, Modifier.weight(0.55f)) { replace(i, header.copy(value = it)) }
-                } else {
+            // Name above value: side-by-side fields are too narrow for typical header values on a phone.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     OutlinedTextField(
-                        value = header.value,
-                        onValueChange = { replace(i, header.copy(value = it)) },
-                        label = { Text("Value") },
+                        value = header.name,
+                        onValueChange = { replace(i, header.copy(name = it)) },
+                        label = { Text("Name") },
+                        placeholder = { Text("X-Webhook-Secret") },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-                        modifier = Modifier.weight(0.55f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    if (header.name.trim().equals("Content-Type", ignoreCase = true)) {
+                        ContentTypeField(header.value, Modifier.fillMaxWidth()) { replace(i, header.copy(value = it)) }
+                    } else {
+                        OutlinedTextField(
+                            value = header.value,
+                            onValueChange = { replace(i, header.copy(value = it)) },
+                            label = { Text("Value") },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 IconButton(onClick = { onChange(headers.filterIndexed { j, _ -> j != i }) }) {
                     Icon(Icons.Default.Close, contentDescription = "Remove header")

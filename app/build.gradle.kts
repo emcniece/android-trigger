@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("app.cash.paparazzi")
 }
 
 android {
@@ -67,4 +68,13 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     testImplementation("junit:junit:4.13.2")
+}
+
+// Renders the README screenshots (ReadmeScreenshots.kt) with Paparazzi and copies them to docs/screenshots.
+tasks.register<Copy>("updateScreenshots") {
+    dependsOn("recordPaparazziDebug")
+    from("src/test/snapshots/images")
+    include("*_ReadmeScreenshots_*.png")
+    into(rootProject.file("docs/screenshots"))
+    rename(".*_ReadmeScreenshots_(.+)\\.png", "$1.png")
 }

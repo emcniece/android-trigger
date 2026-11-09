@@ -4,6 +4,20 @@ This native Android app allows for custom actions to run when Android OS events 
 
 This is a simplified version of the [MacroDroid](https://www.macrodroid.com/) app, and is free for everyone, forever.
 
+**[Download the latest APK](https://github.com/emcniece/android-trigger/releases)** · **[Request a feature](https://github.com/emcniece/android-trigger/issues/new?labels=enhancement)** · **[Report a bug](https://github.com/emcniece/android-trigger/issues/new?labels=bug)**
+
+## Screenshots
+
+| Macros | Editor | Activity log |
+|---|---|---|
+| <img src="docs/screenshots/macroList.png" width="240" alt="Macro list"> | <img src="docs/screenshots/macroEditor.png" width="240" alt="Macro editor: SMS trigger forwarding to an HTTP webhook"> | <img src="docs/screenshots/activityLog.png" width="240" alt="Activity log"> |
+
+| Dark theme | About |
+|---|---|
+| <img src="docs/screenshots/macroListDark.png" width="240" alt="Macro list in dark theme"> | <img src="docs/screenshots/about.png" width="240" alt="About page"> |
+
+*Screenshots are rendered from sample data with [Paparazzi](https://github.com/cashapp/paparazzi); regenerate them with `./gradlew updateScreenshots`.*
+
 ## Concepts
 
 Like MacroDroid, the unit of automation is a **macro**: one **trigger** (with optional filters) and an ordered list of **actions**. MacroDroid offers 70+ triggers, 100+ actions and ~50 constraint types; Trigger deliberately covers the useful core.
@@ -65,8 +79,20 @@ Requires JDK 17–21 and the Android SDK (platform 35).
 ```sh
 ./gradlew assembleDebug        # → app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest
+./gradlew updateScreenshots    # re-render docs/screenshots from ReadmeScreenshots.kt
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Debug builds can simulate trigger events over adb without a real SMS or charger:
+
+```sh
+adb shell am broadcast -n com.emcniece.trigger/.DebugEventReceiver \
+  --es type sms --es sms_sender +15555550123 --es sms_body "'hello world'"
+```
+
+## Releases
+
+Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and attaches it to the release, along with a SHA-256 checksum. Pull requests run unit tests, lint and a debug build. Dependabot patch and minor updates merge automatically once tests pass.
 
 ## Notes and limitations
 

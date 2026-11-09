@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,23 +41,49 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emcniece.trigger.Graph
+import com.emcniece.trigger.data.LogEntry
 import com.emcniece.trigger.model.Macro
 import java.text.DateFormat
 import java.util.Date
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Unit) {
+fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Unit, onAbout: () -> Unit) {
     val macros by Graph.macros.macros.collectAsStateWithLifecycle()
     val tick = rememberResumeTick()
     val context = LocalContext.current
+    val missing = remember(macros, tick) {
+        macros.associate { m -> m.id to Requirements.unmet(context, m).filterNot { it.optional }.map { it.label } }
+    }
+    MacroListContent(
+        macros = macros,
+        missingPermissions = missing,
+        onToggle = { id, enabled -> Graph.macros.setEnabled(id, enabled) },
+        onAdd = onAdd,
+        onEdit = onEdit,
+        onLog = onLog,
+        onAbout = onAbout,
+    )
+}
 
+/** Stateless macro list; [missingPermissions] maps macro id to unmet required permission labels. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MacroListContent(
+    macros: List<Macro>,
+    missingPermissions: Map<String, List<String>>,
+    onToggle: (String, Boolean) -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (String) -> Unit,
+    onLog: () -> Unit,
+    onAbout: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Trigger") },
                 actions = {
                     IconButton(onClick = onLog) { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Activity log") }
+                    IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About") }
                 },
             )
         },
@@ -85,10 +112,12 @@ fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Un
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 items(macros, key = { it.id }) { macro ->
-                    val missing = remember(macro, tick) {
-                        Requirements.unmet(context, macro).filterNot { it.optional }
-                    }
-                    MacroCard(macro, missing.map { it.label }, onClick = { onEdit(macro.id) })
+                    MacroCard(
+                        macro,
+                        missingPermissions[macro.id].orEmpty(),
+                        onToggle = { onToggle(macro.id, it) },
+                        onClick = { onEdit(macro.id) },
+                    )
                 }
             }
         }
@@ -96,7 +125,7 @@ fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Un
 }
 
 @Composable
-private fun MacroCard(macro: Macro, missing: List<String>, onClick: () -> Unit) {
+private fun MacroCard(macro: Macro, missing: List<String>, onToggle: (Boolean) -> Unit, onClick: () -> Unit) {
     Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -124,15 +153,20 @@ private fun MacroCard(macro: Macro, missing: List<String>, onClick: () -> Unit) 
                     }
                 }
             }
-            Switch(checked = macro.enabled, onCheckedChange = { Graph.macros.setEnabled(macro.id, it) })
+            Switch(checked = macro.enabled, onCheckedChange = onToggle)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogScreen(onBack: () -> Unit) {
     val entries by Graph.log.entries.collectAsStateWithLifecycle()
+    LogContent(entries, onBack = onBack, onClear = { Graph.log.clear() })
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LogContent(entries: List<LogEntry>, onBack: () -> Unit, onClear: () -> Unit) {
     val fmt = remember { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM) }
     Scaffold(
         topBar = {
@@ -142,7 +176,7 @@ fun LogScreen(onBack: () -> Unit) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                 },
                 actions = {
-                    IconButton(onClick = { Graph.log.clear() }) { Icon(Icons.Default.Delete, contentDescription = "Clear log") }
+                    IconButton(onClick = onClear) { Icon(Icons.Default.Delete, contentDescription = "Clear log") }
                 },
             )
         },

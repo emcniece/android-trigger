@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -40,26 +41,50 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Brand palette, matching the launcher icon (navy + amber). Used when dynamic color is unavailable. */
+private val BrandLight = lightColorScheme(
+    primary = Color(0xFF2D4A8A),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFDAE2FF),
+    onPrimaryContainer = Color(0xFF001848),
+    secondary = Color(0xFF7A5900),
+    secondaryContainer = Color(0xFFFFDF9E),
+    onSecondaryContainer = Color(0xFF261A00),
+)
+private val BrandDark = darkColorScheme(
+    primary = Color(0xFFB1C5FF),
+    onPrimary = Color(0xFF002C71),
+    primaryContainer = Color(0xFF1F2A44),
+    onPrimaryContainer = Color(0xFFDAE2FF),
+    secondary = Color(0xFFFFC94A),
+    secondaryContainer = Color(0xFF5C4300),
+    onSecondaryContainer = Color(0xFFFFDF9E),
+)
+
 @Composable
-fun TriggerTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+fun TriggerTheme(
+    dark: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit,
+) {
     val context = LocalContext.current
     val colors = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        dark -> darkColorScheme()
-        else -> lightColorScheme()
+        dark -> BrandDark
+        else -> BrandLight
     }
     MaterialTheme(colorScheme = colors, content = content)
 }
 
-/** Routes: "list", "log", "edit:" (new) or "edit:<id>". */
+/** Routes: "list", "log", "about", "edit:" (new) or "edit:<id>". */
 @Composable
 fun AppRoot() {
     var route by rememberSaveable { mutableStateOf("list") }
     BackHandler(enabled = route != "list") { route = "list" }
     when {
         route == "log" -> LogScreen(onBack = { route = "list" })
+        route == "about" -> AboutScreen(onBack = { route = "list" })
         route.startsWith("edit:") -> MacroEditScreen(
             macroId = route.removePrefix("edit:").ifEmpty { null },
             onDone = { route = "list" },
@@ -68,6 +93,7 @@ fun AppRoot() {
             onAdd = { route = "edit:" },
             onEdit = { route = "edit:$it" },
             onLog = { route = "log" },
+            onAbout = { route = "about" },
         )
     }
 }
