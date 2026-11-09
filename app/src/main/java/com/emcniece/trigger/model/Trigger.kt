@@ -1,0 +1,154 @@
+package com.emcniece.trigger.model
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+enum class TriggerType(val label: String, val vars: List<String>) {
+    SMS("SMS received", listOf("sms_sender", "sms_body")),
+    NOTIFICATION("Notification posted", listOf("notif_package", "notif_title", "notif_text")),
+    POWER("Charger connected / disconnected", listOf("power_state")),
+    BATTERY("Battery level", listOf("battery_level", "battery_previous")),
+    NETWORK("Network connected / lost", listOf("network_state", "network_type")),
+    BOOT("Device boot", emptyList()),
+    TIME("Time of day", listOf("time"));
+
+    fun default(): Trigger = when (this) {
+        SMS -> Trigger.SmsReceived()
+        NOTIFICATION -> Trigger.NotificationPosted()
+        POWER -> Trigger.PowerChanged()
+        BATTERY -> Trigger.BatteryLevel()
+        NETWORK -> Trigger.NetworkChanged()
+        BOOT -> Trigger.Boot
+        TIME -> Trigger.DailyTime()
+    }
+
+    /** Fake event data used by the "Test" button. */
+    fun sampleVars(): Map<String, String> = when (this) {
+        SMS -> mapOf("sms_sender" to "+15555550123", "sms_body" to "Test message")
+        NOTIFICATION -> mapOf(
+            "notif_package" to "com.example.app",
+            "notif_title" to "Test title",
+            "notif_text" to "Test notification text",
+        )
+        POWER -> mapOf("power_state" to "connected")
+        BATTERY -> mapOf("battery_level" to "15", "battery_previous" to "16")
+        NETWORK -> mapOf("network_state" to "connected", "network_type" to "wifi")
+        BOOT -> emptyMap()
+        TIME -> mapOf("time" to "08:00")
+    }
+}
+
+enum class NetworkTransport(val id: String, val label: String) {
+    ANY("any", "Any network"),
+    WIFI("wifi", "Wi-Fi"),
+    CELLULAR("cellular", "Mobile data"),
+}
+
+/** An OS event delivered to the engine. [targetMacroId] restricts delivery to one macro (alarms). */
+data class TriggerEvent(
+    val type: TriggerType,
+    val vars: Map<String, String> = emptyMap(),
+    val targetMacroId: String? = null,
+)
+
+@Serializable
+sealed interface Trigger {
+    val type: TriggerType
+    fun matches(event: TriggerEvent): Boolean
+    fun describe(): String
+
+    @Serializable
+    @SerialName("sms")
+    data class SmsReceived(
+        val sender: TextMatch = TextMatch(),
+        val body: TextMatch = TextMatch(),
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.SMS
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            sender.matches(event.vars["sms_sender"]) &&
+            body.matches(event.vars["sms_body"])
+
+        override fun describe() = buildString {
+            append("SMS received")
+            if (sender.isActive) append(", sender ${sender.describe()}")
+            if (body.isActive) append(", text ${body.describe()}")
+        }
+    }
+
+    @Serializable
+    @SerialName("notification")
+    data class NotificationPosted(
+        val packageName: String = "",
+        val text: TextMatch = TextMatch(),
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.NOTIFICATION
+        override fun matches(event: TriggerEvent): Boolean {
+            if (event.type != type) return false
+            if (packageName.isNotBlank() && packageName.trim() != event.vars["notif_package"]) return false
+            return text.matches(event.vars["notif_title"]) || text.matches(event.vars["notif_text"])
+        }
+
+        override fun describe() = buildString {
+            append("Notification")
+            if (packageName.isNotBlank()) append(" from $packageName")
+            if (text.isActive) append(", text ${text.describe()}")
+        }
+    }
+
+    @Serializable
+    @SerialName("power")
+    data class PowerChanged(val connected: Boolean = true) : Trigger {
+        override val type: TriggerType get() = TriggerType.POWER
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            event.vars["power_state"] == if (connected) "connected" else "disconnected"
+
+        override fun describe() = if (connected) "Charger connected" else "Charger disconnected"
+    }
+
+    /** Fires when the level crosses [threshold] in the chosen direction. */
+    @Serializable
+    @SerialName("battery")
+    data class BatteryLevel(val threshold: Int = 20, val below: Boolean = true) : Trigger {
+        override val type: TriggerType get() = TriggerType.BATTERY
+        override fun matches(event: TriggerEvent): Boolean {
+            if (event.type != type) return false
+            val level = event.vars["battery_level"]?.toIntOrNull() ?: return false
+            val prev = event.vars["battery_previous"]?.toIntOrNull() ?: return false
+            return if (below) prev > threshold && level <= threshold
+            else prev < threshold && level >= threshold
+        }
+
+        override fun describe() = "Battery ${if (below) "drops to" else "rises to"} $threshold%"
+    }
+
+    @Serializable
+    @SerialName("network")
+    data class NetworkChanged(
+        val connected: Boolean = true,
+        val transport: NetworkTransport = NetworkTransport.ANY,
+    ) : Trigger {
+        override val type: TriggerType get() = TriggerType.NETWORK
+        override fun matches(event: TriggerEvent) = event.type == type &&
+            event.vars["network_scope"] == transport.id &&
+            event.vars["network_state"] == if (connected) "connected" else "disconnected"
+
+        override fun describe() = "${transport.label} ${if (connected) "connected" else "lost"}"
+    }
+
+    @Serializable
+    @SerialName("boot")
+    data object Boot : Trigger {
+        override val type: TriggerType get() = TriggerType.BOOT
+        override fun matches(event: TriggerEvent) = event.type == type
+        override fun describe() = "Device boots"
+    }
+
+    @Serializable
+    @SerialName("time")
+    data class DailyTime(val hour: Int = 8, val minute: Int = 0) : Trigger {
+        override val type: TriggerType get() = TriggerType.TIME
+        // Alarm events are targeted at a single macro, so the type check is sufficient here.
+        override fun matches(event: TriggerEvent) = event.type == type
+        override fun describe() = "Every day at %02d:%02d".format(hour, minute)
+    }
+}
