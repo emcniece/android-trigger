@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -63,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -197,10 +199,7 @@ fun MacroEditContent(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Enabled", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                Switch(checked = draft.enabled, onCheckedChange = { draft = draft.copy(enabled = it) })
-            }
+            LabeledSwitch("Enabled", draft.enabled) { draft = draft.copy(enabled = it) }
 
             requirements(draft)
 
@@ -406,11 +405,38 @@ internal fun TextMatchEditor(label: String, match: TextMatch, onChange: (TextMat
                 isError = match.mode == MatchMode.REGEX && runCatching { Regex(match.pattern) }.isFailure,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = match.ignoreCase, onCheckedChange = { onChange(match.copy(ignoreCase = it)) })
-                Text("Ignore case", style = MaterialTheme.typography.bodyMedium)
-            }
+            LabeledCheckbox("Ignore case", match.ignoreCase) { onChange(match.copy(ignoreCase = it)) }
         }
+    }
+}
+
+/** A switch whose whole row, label included, toggles it. */
+@Composable
+internal fun LabeledSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+/** A checkbox whose label is part of the tap target. */
+@Composable
+internal fun LabeledCheckbox(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

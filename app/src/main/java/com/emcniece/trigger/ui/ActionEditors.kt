@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -233,9 +232,6 @@ internal fun RunMacroFields(action: Action.RunMacro, otherMacros: List<Macro>, o
             onChange(action.copy(macroId = m.id, macroName = m.displayName))
         },
     )
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = action.checkConditions, onCheckedChange = { onChange(action.copy(checkConditions = it)) })
-        Text("Only if its conditions are met", style = MaterialTheme.typography.bodyMedium)
-    }
+    LabeledCheckbox("Only if its conditions are met", action.checkConditions) { onChange(action.copy(checkConditions = it)) }
     Hint("Runs that macro's actions, ignoring its trigger. Variables from this trigger are passed along.")
 }
