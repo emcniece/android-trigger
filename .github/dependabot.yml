@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # These must move in lockstep: the Kotlin compiler, Compose compiler and serialization plugins share a version.
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin*"
+        exclude-patterns:
+          - "org.jetbrains.kotlinx*"
+      android-gradle-plugin:
+        patterns:
+          - "com.android.*"
+      compose:
+        patterns:
+          - "androidx.compose*"
+      androidx:
+        patterns:
+          - "androidx.*"
+        exclude-patterns:
+          - "androidx.compose*"
+      kotlinx:
+        patterns:
+          - "org.jetbrains.kotlinx*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns:
+          - "*"
