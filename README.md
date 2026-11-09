@@ -57,10 +57,18 @@ The editor shows whether each condition is met right now. The ▶ test button ru
 
 ### Actions
 
-- **HTTP request**: GET/POST/PUT/PATCH/DELETE with custom headers and body. Failed requests (network errors, 408/429/5xx) are retried with exponential backoff once the network is available.
-- **Show notification**
-- **Send SMS**
-- **Vibrate**
+| Action | Notes |
+|---|---|
+| HTTP request | GET/POST/PUT/PATCH/DELETE with custom headers and body. Network errors and 408/429/5xx responses are retried with exponential backoff once the network is available. |
+| Show notification | |
+| Send SMS | |
+| Vibrate | |
+| Open app | Pick from installed apps. Needs **Display over other apps** to open from the background. |
+| Open URL | Any link: `https://`, `geo:`, `tel:`, … Same permission as Open app. |
+| Set volume | Media, ring, notification or alarm, as a percentage. Ring/notification need Do Not Disturb access while DND is on. |
+| Do Not Disturb | Off, priority only, alarms only or total silence. Needs Do Not Disturb access. |
+| Send intent | Broadcast an intent with an action, optional target package and text extras, e.g. for Tasker or Home Assistant. |
+| Run another macro | Runs another macro's actions, optionally only if its conditions are met. Trigger variables are passed along; nesting stops at 5 levels. |
 
 ### Variables
 
@@ -128,4 +136,3 @@ Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and 
 
 - Wi-Fi network name (SSID) condition
 - More triggers: geofence (location), app launched
-- More actions: launch app/URL, set volume / DND, Tasker-style intents, run multiple macros

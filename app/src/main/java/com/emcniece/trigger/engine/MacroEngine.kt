@@ -37,7 +37,14 @@ object MacroEngine {
         }
     }
 
-    suspend fun runMacro(context: Context, macro: Macro, eventVars: Map<String, String>, allowRetry: Boolean) {
+    /** [depth] counts nested "Run another macro" actions, to stop runaway loops. */
+    suspend fun runMacro(
+        context: Context,
+        macro: Macro,
+        eventVars: Map<String, String>,
+        allowRetry: Boolean,
+        depth: Int = 0,
+    ) {
         val now = OffsetDateTime.now()
         val vars = buildMap {
             put("trigger", macro.trigger.type.name.lowercase())
@@ -53,7 +60,7 @@ object MacroEngine {
         }
         for (action in macro.actions) {
             try {
-                val result = ActionRunner.run(context, macro, action, vars, allowRetry)
+                val result = ActionRunner.run(context, macro, action, vars, eventVars, allowRetry, depth)
                 Graph.log.add(macro.displayName, "${action.type.label}: $result", true)
             } catch (e: Exception) {
                 Graph.log.add(macro.displayName, "${action.type.label} failed: ${e.message ?: e.javaClass.simpleName}", false)

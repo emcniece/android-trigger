@@ -2,6 +2,7 @@ package com.emcniece.trigger.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,6 +16,7 @@ import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.model.TriggerType
+import com.emcniece.trigger.model.VolumeStream
 import com.emcniece.trigger.triggers.AlarmScheduler
 
 /** Something the user must grant for a macro to work. */
@@ -71,6 +73,20 @@ object Requirements {
         },
     )
 
+    private val overlay = Requirement.Special(
+        "Display over other apps (open apps and links in the background)",
+        optional = false,
+        check = { Settings.canDrawOverlays(it) },
+        intent = { Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${it.packageName}")) },
+    )
+
+    private fun dndAccess(optional: Boolean) = Requirement.Special(
+        "Do Not Disturb access",
+        optional = optional,
+        check = { it.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted },
+        intent = { Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS) },
+    )
+
     @SuppressLint("BatteryLife")
     private val batteryUnrestricted = Requirement.Special(
         "Unrestricted battery use (reliable background runs)",
@@ -96,6 +112,13 @@ object Requirements {
             TriggerType.BOOT -> Unit
         }
         if (macro.actions.any { it is Action.SendSms }) add(sendSms)
+        if (macro.actions.any { it is Action.OpenApp || it is Action.OpenUrl }) add(overlay)
+        when {
+            macro.actions.any { it is Action.DoNotDisturb } -> add(dndAccess(optional = false))
+            // Ring/notification volume can only be changed while DND is on with DND access.
+            macro.actions.any { it is Action.SetVolume && it.stream in setOf(VolumeStream.RING, VolumeStream.NOTIFICATION) } ->
+                add(dndAccess(optional = true))
+        }
         if (macro.actions.any { it is Action.ShowNotification } && Build.VERSION.SDK_INT >= 33) add(postNotifications)
         add(batteryUnrestricted)
     }.distinct()

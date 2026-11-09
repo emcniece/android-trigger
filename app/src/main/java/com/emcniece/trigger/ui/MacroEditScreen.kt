@@ -66,6 +66,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.emcniece.trigger.Graph
 import com.emcniece.trigger.engine.MacroEngine
 import com.emcniece.trigger.engine.AndroidDeviceState
@@ -110,6 +111,7 @@ fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
     // Re-read device state each time the screen resumes (e.g. after plugging in a charger).
     val tick = rememberResumeTick()
     val deviceState = remember(tick) { AndroidDeviceState(context) }
+    val allMacros by Graph.macros.macros.collectAsStateWithLifecycle()
     MacroEditContent(
         initial = existing ?: newMacro(),
         isNew = existing == null,
@@ -130,6 +132,7 @@ fun MacroEditScreen(macroId: String?, onDone: () -> Unit) {
             if (blocking.isEmpty()) result else "$result (ran anyway; conditions not met now)"
         },
         constraintStatus = { it.isMet(deviceState) },
+        otherMacros = allMacros,
     )
 }
 
@@ -148,6 +151,7 @@ fun MacroEditContent(
     onTest: suspend (Macro) -> String,
     requirements: @Composable (Macro) -> Unit = { RequirementsCard(it) },
     constraintStatus: (Constraint) -> Boolean? = { null },
+    otherMacros: List<Macro> = emptyList(),
 ) {
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -225,6 +229,7 @@ fun MacroEditContent(
                 ActionCard(
                     action = action,
                     triggerType = draft.trigger.type,
+                    otherMacros = otherMacros.filter { it.id != draft.id },
                     canMoveUp = index > 0,
                     canMoveDown = index < draft.actions.lastIndex,
                     onChange = { updated -> draft = draft.copy(actions = draft.actions.toMutableList().also { it[index] = updated }) },
@@ -456,6 +461,7 @@ internal fun <T> ChoiceField(
 internal fun ActionCard(
     action: Action,
     triggerType: TriggerType,
+    otherMacros: List<Macro> = emptyList(),
     canMoveUp: Boolean,
     canMoveDown: Boolean,
     onChange: (Action) -> Unit,
@@ -471,14 +477,14 @@ internal fun ActionCard(
                 IconButton(onClick = onDelete) { Icon(Icons.Default.Close, "Remove action") }
             }
             Column(Modifier.padding(end = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionFields(action, triggerType, onChange)
+                ActionFields(action, triggerType, otherMacros, onChange)
             }
         }
     }
 }
 
 @Composable
-private fun ActionFields(action: Action, triggerType: TriggerType, onChange: (Action) -> Unit) {
+private fun ActionFields(action: Action, triggerType: TriggerType, otherMacros: List<Macro>, onChange: (Action) -> Unit) {
     when (action) {
         is Action.HttpRequest -> {
             ChoiceField("Method", HTTP_METHODS, action.method, { it }) { onChange(action.copy(method = it)) }
@@ -523,6 +529,12 @@ private fun ActionFields(action: Action, triggerType: TriggerType, onChange: (Ac
                 valueRange = 100f..3000f,
             )
         }
+        is Action.OpenApp -> OpenAppFields(action, onChange)
+        is Action.OpenUrl -> OpenUrlFields(action, triggerType, onChange)
+        is Action.SetVolume -> VolumeFields(action, onChange)
+        is Action.DoNotDisturb -> DndFields(action, onChange)
+        is Action.SendIntent -> SendIntentFields(action, triggerType, onChange)
+        is Action.RunMacro -> RunMacroFields(action, otherMacros, onChange)
     }
 }
 

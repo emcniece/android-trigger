@@ -5,7 +5,11 @@ import com.emcniece.trigger.engine.Templates
 import com.emcniece.trigger.model.Action
 import com.emcniece.trigger.model.AppJson
 import com.emcniece.trigger.model.HttpHeader
+import com.emcniece.trigger.model.ActionType
 import com.emcniece.trigger.model.CallEvent
+import com.emcniece.trigger.model.DndMode
+import com.emcniece.trigger.model.IntentExtra
+import com.emcniece.trigger.model.VolumeStream
 import com.emcniece.trigger.model.HeadphoneKind
 import com.emcniece.trigger.model.Macro
 import com.emcniece.trigger.model.ScreenEventKind
@@ -79,6 +83,23 @@ class ModelTest {
             val m = Macro(trigger = type.default())
             assertEquals(m, AppJson.decodeFromString(Macro.serializer(), AppJson.encodeToString(Macro.serializer(), m)))
         }
+    }
+
+    @Test fun newActionsRoundTripAndDescribe() {
+        // Every action type has a default that survives JSON (catches clashes with the "kind" discriminator).
+        val m = Macro(actions = ActionType.entries.map { it.default() })
+        assertEquals(m, AppJson.decodeFromString(Macro.serializer(), AppJson.encodeToString(Macro.serializer(), m)))
+
+        val intent = Action.SendIntent(
+            "net.dinglisch.android.tasker.ACTION_TASK", "net.dinglisch.android.taskerm",
+            listOf(IntentExtra("task_name", "{sms_body}")),
+        )
+        assertEquals(intent, AppJson.decodeFromString(Action.serializer(), AppJson.encodeToString(Action.serializer(), intent)))
+        assertEquals("Broadcast net.dinglisch.android.tasker.ACTION_TASK", intent.describe())
+        assertEquals("Ring volume 20%", Action.SetVolume(VolumeStream.RING, 20).describe())
+        assertEquals("Do Not Disturb: alarms only", Action.DoNotDisturb(DndMode.ALARMS).describe())
+        assertEquals("Open Maps", Action.OpenApp("com.google.android.apps.maps", "Maps").describe())
+        assertEquals("Run \"Lights on\"", Action.RunMacro("id", "Lights on").describe())
     }
 
     @Test fun networkScope() {
