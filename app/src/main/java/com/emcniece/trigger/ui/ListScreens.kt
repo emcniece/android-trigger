@@ -19,6 +19,13 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +61,8 @@ fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Un
     val missing = remember(macros, tick) {
         macros.associate { m -> m.id to Requirements.unmet(context, m).filterNot { it.optional }.map { it.label } }
     }
+    val snackbar = remember { SnackbarHostState() }
+    val transfer = rememberMacroTransfer(snackbar)
     MacroListContent(
         macros = macros,
         missingPermissions = missing,
@@ -62,6 +71,9 @@ fun MacroListScreen(onAdd: () -> Unit, onEdit: (String) -> Unit, onLog: () -> Un
         onEdit = onEdit,
         onLog = onLog,
         onAbout = onAbout,
+        onImport = transfer.startImport,
+        onExport = transfer.startExport,
+        snackbar = snackbar,
     )
 }
 
@@ -76,7 +88,11 @@ fun MacroListContent(
     onEdit: (String) -> Unit,
     onLog: () -> Unit,
     onAbout: () -> Unit,
+    onImport: () -> Unit = {},
+    onExport: () -> Unit = {},
+    snackbar: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -84,9 +100,27 @@ fun MacroListContent(
                 actions = {
                     IconButton(onClick = onLog) { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Activity log") }
                     IconButton(onClick = onAbout) { Icon(Icons.Default.Info, contentDescription = "About") }
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More options") }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Import macros") }, onClick = {
+                                menuOpen = false
+                                onImport()
+                            })
+                            DropdownMenuItem(
+                                text = { Text("Export macros") },
+                                enabled = macros.isNotEmpty(),
+                                onClick = {
+                                    menuOpen = false
+                                    onExport()
+                                },
+                            )
+                        }
+                    }
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAdd,

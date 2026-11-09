@@ -55,6 +55,13 @@ class MacroRepository(context: Context) : JsonListStore<Macro>(context, "macros.
 
     fun delete(id: String) = update { list -> list.filterNot { it.id == id } }
 
+    /** Adds [incoming] macros, replacing any existing macro with the same ID in place. */
+    fun importAll(incoming: List<Macro>) = update { list ->
+        val byId = incoming.associateBy { it.id }
+        val existingIds = list.map { it.id }.toSet()
+        list.map { byId[it.id] ?: it } + incoming.filter { it.id !in existingIds }
+    }
+
     fun setEnabled(id: String, enabled: Boolean) = update { list ->
         list.map { if (it.id == id) it.copy(enabled = enabled) else it }
     }

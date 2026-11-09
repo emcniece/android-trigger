@@ -53,6 +53,10 @@ Any action field can use `{variable}` placeholders. Every macro gets `{macro_nam
 
 The ▶ button in the editor test-runs a macro with sample data, and every run is recorded in the activity log.
 
+### Import and export
+
+Use **⋮ → Export macros** to save all macros to a JSON file, and **⋮ → Import macros** to load them on another phone or after reinstalling. If an imported macro already exists, you can replace it or keep both. Exports include everything in your macros, including header values such as webhook secrets, so store them privately.
+
 ## Architecture
 
 ```
@@ -105,4 +109,3 @@ Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and 
 - Constraints (time window, day of week, charging, Wi-Fi SSID)
 - More triggers: incoming call, headphones, Bluetooth device, geofence, app launched
 - More actions: launch app/URL, set volume / DND, Tasker-style intents, run multiple macros
-- Import/export macros as JSON

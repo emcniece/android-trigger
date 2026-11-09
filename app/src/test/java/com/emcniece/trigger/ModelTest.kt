@@ -13,7 +13,12 @@ import com.emcniece.trigger.model.Trigger
 import com.emcniece.trigger.model.TriggerEvent
 import com.emcniece.trigger.model.TriggerType
 import org.junit.Assert.assertEquals
+import com.emcniece.trigger.data.ImportException
+import com.emcniece.trigger.data.MacroTransfer
+import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.fail
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -72,6 +77,37 @@ class ModelTest {
             listOf(HttpHeader("Content-Type", "application/json"), HttpHeader("X-Webhook-Secret", "s3:cr3t")),
             action.headers,
         )
+    }
+
+    @Test fun exportRoundTrip() {
+        val macros = listOf(Macro(name = "A", actions = listOf(Action.Vibrate(100))), Macro(name = "B", trigger = Trigger.Boot))
+        val text = MacroTransfer.encode(macros, "0.1.1")
+        assertTrue(text.contains("\"format\": \"trigger-macros\""))
+        assertEquals(macros, MacroTransfer.decode(text))
+    }
+
+    @Test fun importAcceptsBareListBackup() {
+        // Same shape as files/macros.json, e.g. a backup pulled with adb.
+        val backup = AppJson.encodeToString(ListSerializer(Macro.serializer()), listOf(Macro(id = "x", name = "Backup")))
+        assertEquals("Backup", MacroTransfer.decode(backup).single().name)
+    }
+
+    @Test fun importRejectsOtherJson() {
+        for (bad in listOf("""{"hello": 1}""", "not json", "42", "[1, 2]", """[{"trigger": {"kind": "nope"}}]""")) {
+            try {
+                MacroTransfer.decode(bad)
+                fail("expected ImportException for $bad")
+            } catch (_: ImportException) {
+            }
+        }
+    }
+
+    @Test fun keepBothRenamesConflicts() {
+        val incoming = listOf(Macro(id = "a", name = "Same"), Macro(id = "b", name = "New"))
+        val result = MacroTransfer.asCopies(incoming, existingIds = setOf("a"))
+        assertNotEquals("a", result[0].id)
+        assertEquals("Same (copy)", result[0].name)
+        assertEquals(incoming[1], result[1])
     }
 
     @Test fun macroJsonRoundTrip() {
