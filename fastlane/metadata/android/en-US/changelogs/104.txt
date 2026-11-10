@@ -1,0 +1,3 @@
+New: Wi-Fi network condition. Only run a macro when connected (or not connected) to a Wi-Fi network by name, e.g. "only when not on home Wi-Fi". "Use current network" fills in the network you're on.
+
+Android only reveals Wi-Fi names to apps with precise location set to "Allow all the time" and location services on; the editor asks for these.
