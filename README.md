@@ -1,4 +1,14 @@
-# Android Trigger
+<p align="center">
+  <img alt="Trigger logo" src="docs/logo.svg" width="128">
+</p>
+
+<h1 align="center">Android Trigger</h1>
+
+<p align="center">
+  <a href="https://github.com/emcniece/android-trigger/releases"><img alt="Get it on GitHub" src="https://raw.githubusercontent.com/Kunzisoft/Github-badge/main/get-it-on-github.png" height="80"></a>
+  <a href="https://f-droid.org/packages/com.emcniece.trigger"><img alt="Get it on F-Droid" src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="80"></a>
+  <a href="https://apt.izzysoft.de/fdroid/index/apk/com.emcniece.trigger"><img alt="Get it on IzzyOnDroid" src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="80"></a>
+</p>
 
 This native Android app allows for custom actions to run when Android OS events happen. For example: when an SMS message is received with a particular string, make an HTTP request.
 
