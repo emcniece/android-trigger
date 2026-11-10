@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Started by Prepare release, whose GITHUB_TOKEN-opened PRs don't trigger pull_request runs.
+  workflow_dispatch:
 
 permissions:
   contents: read

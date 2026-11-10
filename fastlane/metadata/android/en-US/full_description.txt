@@ -1,0 +1,34 @@
+<p>Trigger runs your own actions when things happen on your phone. For example: when an SMS arrives containing a particular word, send an HTTP request to your server. It is a simplified, free and open-source take on apps like MacroDroid, with no ads, accounts or tracking.</p>
+
+<p>Each <b>macro</b> has one trigger, optional conditions, and a list of actions.</p>
+
+<p><b>Triggers</b></p>
+<ul>
+<li>SMS received (filter by sender and text)</li>
+<li>Notification posted (filter by app, title and text)</li>
+<li>Charger connected or disconnected</li>
+<li>Battery level rises or drops to a percentage</li>
+<li>Network connected or lost (any, Wi-Fi or mobile data)</li>
+<li>Device boot</li>
+<li>Time of day</li>
+<li>Phone call ringing, answered, ended or missed</li>
+<li>Headphones connected or disconnected</li>
+<li>Bluetooth device connected or disconnected</li>
+<li>Screen on, screen off or phone unlocked</li>
+</ul>
+
+<p><b>Conditions</b>: time window, day of week, charging, battery level, network type, screen state, and Wi-Fi network name.</p>
+
+<p><b>Actions</b></p>
+<ul>
+<li>HTTP request with custom headers and body, retried automatically on failure</li>
+<li>Show a notification, send an SMS, vibrate</li>
+<li>Open an app or URL</li>
+<li>Set volume and Do Not Disturb mode</li>
+<li>Send a broadcast intent (e.g. to Tasker or Home Assistant)</li>
+<li>Run another macro</li>
+</ul>
+
+<p>Any action field can use variables from the trigger, such as the SMS sender and text, with JSON and URL escaping. Every run is recorded in an activity log, macros can be test-run from the editor, and all macros can be exported and imported as JSON.</p>
+
+<p><b>Permissions</b>: Trigger only asks for a permission when one of your macros needs it. SMS, call log, notification access and location are used solely to detect the events you choose; nothing is sent anywhere except by actions you configure.</p>

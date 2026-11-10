@@ -135,7 +135,17 @@ adb shell am broadcast -n com.emcniece.trigger.debug/com.emcniece.trigger.DebugE
 
 ## Releases
 
-Publishing a GitHub release tagged `vMAJOR.MINOR.PATCH` builds a signed APK and attaches it to the release, along with a SHA-256 checksum. Pull requests run unit tests, lint and a debug build. Dependabot patch and minor updates merge automatically once tests pass.
+Releases are automated with GitHub Actions; there is no need to edit version numbers by hand.
+
+1. **Actions → Prepare release → Run workflow**, choosing a `patch`, `minor` or `major` bump (or an exact version). This opens a **Release vX.Y.Z** pull request that bumps `versionName`/`versionCode` in `app/build.gradle.kts` and adds `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, drafted from commit titles since the last release.
+2. Edit the changelog in the PR if needed. It becomes the GitHub release notes and is shown in F-Droid and IzzyOnDroid (max 500 characters).
+3. Merge the PR. The **Release** workflow then tags `vX.Y.Z` on the merge commit, builds the signed APK and publishes the GitHub release with the APK, a SHA-256 checksum and the signing certificate fingerprint.
+
+`versionCode` is `MAJOR * 10000 + MINOR * 100 + PATCH` (e.g. `0.1.5` → `105`). The version lives in the source because F-Droid builds from the tagged commit. The Release workflow runs on any push to `main` that changes `app/build.gradle.kts`, and does nothing if that version is already tagged; run it manually to retry a failed release.
+
+Store listing text, icon and screenshots for F-Droid and IzzyOnDroid live in `fastlane/metadata/android/en-US/`.
+
+Pull requests run unit tests, lint and a debug build. Dependabot patch and minor updates merge automatically once tests pass.
 
 ## Notes and limitations
 

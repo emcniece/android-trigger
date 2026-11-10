@@ -1,0 +1,90 @@
+name: Prepare release
+
+# Run from the Actions tab. Opens a "Release vX.Y.Z" pull request that bumps the version in
+# app/build.gradle.kts and adds the F-Droid/IzzyOnDroid changelog. Edit the changelog in the
+# PR if needed, then merge it: the Release workflow tags, builds and publishes the APK.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: Exact version instead of a bump (e.g. 1.0.0); optional
+        required: false
+      notes:
+        description: Changelog text; optional, drafted from commit titles if empty (editable in the PR)
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: prepare-release
+
+jobs:
+  prepare:
+    name: Open release PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump version and write changelog
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          printf '%s\n' "$NOTES" | sed '/^$/d' > "$RUNNER_TEMP/notes.txt"
+          .github/scripts/prepare-release.sh "${VERSION:-$BUMP}" "$RUNNER_TEMP/notes.txt"
+
+      - name: Push branch and open pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NAME: ${{ steps.version.outputs.name }}
+          CODE: ${{ steps.version.outputs.code }}
+          CHANGELOG: ${{ steps.version.outputs.changelog }}
+        run: |
+          branch="release/v$NAME"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c "$branch"
+          git add app/build.gradle.kts "$CHANGELOG"
+          git commit -m "Release v$NAME"
+          # Re-running for the same version replaces the earlier release branch.
+          git push --force -u origin "$branch"
+
+          chars=$(wc -m < "$CHANGELOG")
+          limit_note=""
+          if (( chars > 500 )); then
+            limit_note=$'\n> [!WARNING]\n> The changelog is '"$chars"$' characters; F-Droid allows 500. Shorten it before merging.\n'
+          fi
+          cat > "$RUNNER_TEMP/body.md" <<EOF
+          Bumps the version to **$NAME** (versionCode $CODE).
+
+          **Merging this publishes the release**: the Release workflow tags \`v$NAME\`, builds the signed APK and creates the GitHub release, using the changelog below as its notes.
+
+          Before merging, edit [\`$CHANGELOG\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/blob/$branch/$CHANGELOG) if needed. It is shown in F-Droid and IzzyOnDroid (max 500 characters).
+          $limit_note
+          ### Changelog
+          $(sed 's/^/> /' "$CHANGELOG")
+          EOF
+
+          if gh pr view "$branch" --json state -q .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --base main --head "$branch" --title "Release v$NAME" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+          # Pull requests opened with GITHUB_TOKEN don't trigger pull_request workflows, so start
+          # the required "Test" check on the release branch explicitly.
+          gh workflow run ci.yml --ref "$branch"

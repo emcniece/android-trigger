@@ -13,9 +13,18 @@ android {
         applicationId = "com.emcniece.trigger"
         minSdk = 26
         targetSdk = 35
-        // Release CI passes these from the git tag; local builds use the defaults.
-        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = (findProperty("versionName") as String?) ?: "0.1.0"
+        // Bump both before tagging a release: F-Droid builds from the tagged source and reads
+        // these literals, and the release workflow fails if they don't match the vX.Y.Z tag.
+        // versionCode = MAJOR * 10000 + MINOR * 100 + PATCH.
+        versionCode = 104
+        versionName = "0.1.4"
+    }
+
+    // Leave out the Google-encrypted dependency metadata block; F-Droid and IzzyOnDroid
+    // reject APKs that carry it, and it breaks reproducible-build comparison.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // Release signing comes from the environment (GitHub Actions secrets), never from the repo.

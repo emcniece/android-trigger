@@ -1,43 +1,63 @@
-name: Release APK
+name: Release
 
-# Builds a signed release APK and attaches it to the GitHub release.
-# Tag releases as vMAJOR.MINOR.PATCH (e.g. v1.2.3); versionCode is derived from it.
+# Publishes a release whenever main has a version with no matching tag yet, normally after
+# merging a "Release vX.Y.Z" PR from the Prepare release workflow. Tags vX.Y.Z on that commit,
+# builds the signed APK and creates the GitHub release with the fastlane changelog as notes.
+# Run it manually (Actions tab) to retry a failed release.
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
+    paths: [app/build.gradle.kts]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  apk:
-    name: Build and attach APK
+  release:
+    name: Build and publish
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
-      - name: Derive version from tag
+      - name: Read version
         id: version
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ ! "$TAG" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "::error::Release tag '$TAG' must look like v1.2.3"
+          name=$(sed -nE 's/^ *versionName = "([^"]+)".*/\1/p' app/build.gradle.kts)
+          code=$(sed -nE 's/^ *versionCode = ([0-9]+).*/\1/p' app/build.gradle.kts)
+          if [[ ! "$name" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::versionName '$name' in app/build.gradle.kts must look like 1.2.3"
             exit 1
           fi
-          major=${BASH_REMATCH[1]} minor=${BASH_REMATCH[2]} patch=${BASH_REMATCH[3]}
-          echo "name=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
-          echo "code=$(( major * 10000 + minor * 100 + patch ))" >> "$GITHUB_OUTPUT"
+          expected=$(( BASH_REMATCH[1] * 10000 + BASH_REMATCH[2] * 100 + BASH_REMATCH[3] ))
+          if [[ "$code" != "$expected" ]]; then
+            echo "::error::versionCode is $code but versionName $name needs $expected"
+            exit 1
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/v$name" >/dev/null; then
+            echo "v$name is already released; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-java@v6
+        if: steps.version.outputs.skip != 'true'
         with:
           distribution: temurin
           java-version: 21
 
       - uses: gradle/actions/setup-gradle@v6
+        if: steps.version.outputs.skip != 'true'
 
       - name: Decode signing keystore
+        if: steps.version.outputs.skip != 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.TRIGGER_KEYSTORE_BASE64 }}
         run: |
@@ -49,21 +69,41 @@ jobs:
           echo "TRIGGER_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Test and build signed release APK
+        if: steps.version.outputs.skip != 'true'
         env:
           TRIGGER_KEYSTORE_PASSWORD: ${{ secrets.TRIGGER_KEYSTORE_PASSWORD }}
           TRIGGER_KEY_ALIAS: ${{ secrets.TRIGGER_KEY_ALIAS }}
           TRIGGER_KEY_PASSWORD: ${{ secrets.TRIGGER_KEY_PASSWORD }}
-        run: >
-          ./gradlew testDebugUnitTest assembleRelease --stacktrace
-          -PversionName=${{ steps.version.outputs.name }}
-          -PversionCode=${{ steps.version.outputs.code }}
+        run: ./gradlew testDebugUnitTest assembleRelease --stacktrace
 
-      - name: Attach APK to release
+      - name: Tag and publish GitHub release
+        if: steps.version.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
+          NAME: ${{ steps.version.outputs.name }}
+          CODE: ${{ steps.version.outputs.code }}
         run: |
-          apk="trigger-${{ steps.version.outputs.name }}.apk"
+          apk="trigger-$NAME.apk"
           cp app/build/outputs/apk/release/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
-          gh release upload "$TAG" "$apk" "$apk.sha256" --clobber
+
+          apksigner="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          cert=$("$apksigner" verify --print-certs "$apk" | sed -nE 's/.*SHA-256 digest: ([0-9a-f]+).*/\1/p' | head -1)
+
+          changelog="fastlane/metadata/android/en-US/changelogs/$CODE.txt"
+          notes="$RUNNER_TEMP/notes.md"
+          {
+            if [[ -f "$changelog" ]]; then
+              cat "$changelog"
+            else
+              echo "::warning::No changelog at $changelog" >&2
+            fi
+            echo
+            echo "### Install"
+            echo "Download \`$apk\` below. It installs as an update over earlier releases and keeps your macros."
+            echo
+            echo "Signing certificate SHA-256: \`$cert\`"
+          } > "$notes"
+
+          gh release create "v$NAME" "$apk" "$apk.sha256" \
+            --target "$GITHUB_SHA" --title "v$NAME" --notes-file "$notes"
