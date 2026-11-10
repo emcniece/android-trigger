@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="128" height="128">
+  <!-- Mirrors the adaptive launcher icon: ic_launcher_background + ic_launcher_foreground -->
+  <rect x="18" y="18" width="72" height="72" rx="16" fill="#1F2A44"/>
+  <path transform="translate(30 30) scale(2)" fill="#FFC94A" d="M7,2v11h3v9l7,-12h-4l4,-8z"/>
+</svg>
