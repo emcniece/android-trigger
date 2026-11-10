@@ -1,0 +1,4 @@
+- Automate releases and add F-Droid/IzzyOnDroid groundwork
+- Add logo and store badges to README
+- Upgrade toolchain and dependencies (Dependabot #1–#6)
+- Make toggle labels tappable
