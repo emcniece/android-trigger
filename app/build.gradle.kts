@@ -16,8 +16,8 @@ android {
         // Bump both before tagging a release: F-Droid builds from the tagged source and reads
         // these literals, and the release workflow fails if they don't match the vX.Y.Z tag.
         // versionCode = MAJOR * 10000 + MINOR * 100 + PATCH.
-        versionCode = 104
-        versionName = "0.1.4"
+        versionCode = 105
+        versionName = "0.1.5"
     }
 
     // Leave out the Google-encrypted dependency metadata block; F-Droid and IzzyOnDroid
